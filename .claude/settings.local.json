@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem -Path \"C:\\\\xampp\\\\htdocs\\\\Node\\\\Unidad3\\\\08-Servidor_Express_NodeMailer\" -Recurse -Force | Select-Object -Property FullName | ForEach-Object { $_.FullName -replace [regex]::Escape\\(\"C:\\\\xampp\\\\htdocs\\\\Node\\\\Unidad3\\\\08-Servidor_Express_NodeMailer\"\\), \".\" } | Sort-Object)",
+      "Bash(find \"C:/xampp/htdocs/Node/Unidad3/08-Servidor_Express_NodeMailer\" -not -path \"*/node_modules/*\" -type f 2>/dev/null | head -50)",
+      "Read(//c/xampp/htdocs/Node/Unidad3/08-Servidor_Express_NodeMailer/**)",
+      "Bash(mkdir -p \"C:\\\\Users\\\\ghali\\\\Documents\\\\Nuevo Horizonte Digital\\\\src\\\\data\" \"C:\\\\Users\\\\ghali\\\\Documents\\\\Nuevo Horizonte Digital\\\\src\\\\models\" \"C:\\\\Users\\\\ghali\\\\Documents\\\\Nuevo Horizonte Digital\\\\src\\\\services\" \"C:\\\\Users\\\\ghali\\\\Documents\\\\Nuevo Horizonte Digital\\\\src\\\\controllers\" \"C:\\\\Users\\\\ghali\\\\Documents\\\\Nuevo Horizonte Digital\\\\src\\\\routes\" \"C:\\\\Users\\\\ghali\\\\Documents\\\\Nuevo Horizonte Digital\\\\src\\\\middlewares\" \"C:\\\\Users\\\\ghali\\\\Documents\\\\Nuevo Horizonte Digital\\\\src\\\\validators\" \"C:\\\\Users\\\\ghali\\\\Documents\\\\Nuevo Horizonte Digital\\\\src\\\\jobs\")"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\ghali\\Documents\\Nuevo Horizonte Digital\\src"
+    ]
+  }
+}

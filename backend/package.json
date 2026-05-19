@@ -1,0 +1,33 @@
+{
+  "name": "horizonte-verde-digital",
+  "version": "1.0.0",
+  "description": "Plataforma unificada de gestión de sensores agrícolas — IES Galileo Galilei",
+  "main": "src/app.js",
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon ./src/app.js",
+    "start": "node ./src/app.js",
+    "seed": "node ./src/seed/superadmin.seed.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.9",
+    "bcrypt": "^6.0.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "excel4node": "^1.8.2",
+    "express": "^5.2.1",
+    "express-rate-limit": "^7.5.0",
+    "express-validator": "^7.3.1",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.1.4",
+    "node-cron": "^3.0.3",
+    "pdfkit": "^0.15.1",
+    "resend": "^4.0.1",
+    "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.7"
+  }
+}
