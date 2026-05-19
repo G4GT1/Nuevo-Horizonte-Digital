@@ -50,3 +50,6 @@ export const VAPID_SUBJECT = process.env.VAPID_SUBJECT;
 export const SEED_ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL;
 export const SEED_ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD;
 export const SEED_ADMIN_NOMBRE = process.env.SEED_ADMIN_NOMBRE;
+
+// Swagger
+export const SWAGGER_ENABLED = process.env.SWAGGER_ENABLED;

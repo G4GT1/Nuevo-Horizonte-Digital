@@ -3,7 +3,7 @@ import { User } from '../models/user.model.js';
 
 export const crearNotificacion = async (userId, type, title, message, link = null) => {
     try {
-        await Notification.create({ userId, type, title, message, link });
+        return await Notification.create({ userId, type, title, message, link });
     } catch {
         // Las notificaciones nunca deben interrumpir el flujo principal
     }

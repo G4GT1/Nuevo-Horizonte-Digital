@@ -37,7 +37,7 @@ export const register = async (req, res) => {
             emailVerifyTokenExpira
         });
 
-        await enviarEmailVerificacion(email, nombre, emailVerifyToken);
+        await enviarEmailVerificacion(email, nombre, emailVerifyToken, usuario.preferences?.language);
         await notificarSuperadmins(
             'nuevo_usuario',
             'Nuevo usuario registrado',
@@ -132,7 +132,7 @@ export const forgotPassword = async (req, res) => {
         const resetPasswordTokenExpira = new Date(Date.now() + 60 * 60 * 1000);
 
         await User.findByIdAndUpdate(usuario._id, { resetPasswordToken, resetPasswordTokenExpira });
-        await enviarEmailResetPassword(email, usuario.nombre, resetPasswordToken);
+        await enviarEmailResetPassword(email, usuario.nombre, resetPasswordToken, usuario.preferences?.language);
         await registrarActividad(usuario._id, 'password_reset_solicitado', req);
 
         return respuestaExito(res, { message: 'Si el email existe, recibirás un enlace para restablecer la contraseña.' });

@@ -8,6 +8,7 @@ import * as cesens from '../services/cesens.service.js';
 import { enviarEmailAlertaCritica } from '../services/email.service.js';
 import { enviarNotificacionATodos } from '../services/push.service.js';
 import { crearNotificacion } from '../utils/notificaciones.js';
+import { emitirActualizacionSensor, emitirAlertaNueva } from '../sockets/index.js';
 
 const CESENS_ID_ESTACION = 8368;
 const CESENS_METRICAS = { temperature: 1, humidity: 6, vwc: 28, battery: 95 };
@@ -15,7 +16,6 @@ const CESENS_METRICAS = { temperature: 1, humidity: 6, vwc: 28, battery: 95 };
 const obtenerValorActual = async (config) => {
     if (config.source === 'fieldclimate') {
         const datos = await fieldclimate.obtenerUltimaDatosEstacion(config.stationId);
-        // FieldClimate devuelve datos en formato { sensors: [{ name, values: [{value}] }] }
         const sensor = datos?.sensors?.find(s => s.name?.toLowerCase().includes(config.metric));
         return sensor?.values?.[0]?.value ?? null;
     }
@@ -53,10 +53,24 @@ const comprobarAlertas = async () => {
         const configs = await AlertConfig.find({ active: true });
         if (!configs.length) return;
 
+        // Mapa para agrupar valores por estación y emitir sensor:update una sola vez por estación
+        const valoresPorEstacion = new Map();
+
         for (const config of configs) {
             try {
                 const valor = await obtenerValorActual(config);
                 if (valor === null) continue;
+
+                // Acumular datos para el evento sensor:update
+                if (!valoresPorEstacion.has(config.stationId)) {
+                    valoresPorEstacion.set(config.stationId, {
+                        stationId: config.stationId,
+                        source: config.source,
+                        timestamp: new Date().toISOString(),
+                        datos: {}
+                    });
+                }
+                valoresPorEstacion.get(config.stationId).datos[config.metric] = valor;
 
                 const umbralSuperado = evaluarUmbral(valor, config.operator, config.threshold);
                 if (!umbralSuperado) continue;
@@ -93,6 +107,17 @@ const comprobarAlertas = async () => {
                     '/alertas'
                 );
 
+                // Emitir alerta por socket al usuario + superadmin
+                emitirAlertaNueva(config.userId, {
+                    id: alerta._id,
+                    tipo,
+                    estacion: config.stationId,
+                    metrica: config.metric,
+                    valor,
+                    umbral: config.threshold,
+                    mensaje
+                });
+
                 // Push al navegador
                 const suscripciones = await PushSubscription.find({ userId: config.userId });
                 if (suscripciones.length) {
@@ -105,7 +130,7 @@ const comprobarAlertas = async () => {
 
                 // Email si es crítica y el usuario lo tiene activado
                 if (tipo === 'critical') {
-                    const usuario = await User.findById(config.userId).select('email nombre notifications');
+                    const usuario = await User.findById(config.userId).select('email nombre notifications preferences');
                     if (usuario?.notifications?.emailCritical) {
                         await enviarEmailAlertaCritica(usuario.email, usuario.nombre, {
                             stationName: config.stationId,
@@ -113,7 +138,7 @@ const comprobarAlertas = async () => {
                             value: valor,
                             threshold: config.threshold,
                             message: mensaje
-                        });
+                        }, usuario.preferences?.language);
                     }
                 }
 
@@ -121,6 +146,12 @@ const comprobarAlertas = async () => {
                 console.error(`[Alertas] Error procesando config ${config._id}:`, errorConfig.message);
             }
         }
+
+        // Emitir actualizaciones de sensor a todos los conectados
+        for (const datos of valoresPorEstacion.values()) {
+            emitirActualizacionSensor(datos);
+        }
+
     } catch (error) {
         console.error('[Alertas] Error general en el job:', error.message);
     }

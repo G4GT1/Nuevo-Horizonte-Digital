@@ -5,6 +5,7 @@ import * as fieldclimate from '../services/fieldclimate.service.js';
 import * as cesens from '../services/cesens.service.js';
 import { enviarResumenSemanal } from '../services/email.service.js';
 import { crearNotificacion } from '../utils/notificaciones.js';
+import { emitirNotificacionNueva } from '../sockets/index.js';
 import { rangoUltimaSemana, formatearFechaCesens } from '../utils/fechas.js';
 
 const calcularEstadisticas = (lecturas) => {
@@ -100,14 +101,26 @@ const generarResumenSemanal = async () => {
         // Enviar a cada usuario
         for (const usuario of usuarios) {
             try {
-                await enviarResumenSemanal(usuario.email, usuario.nombre, datos);
-                await crearNotificacion(
+                await enviarResumenSemanal(usuario.email, usuario.nombre, datos, usuario.preferences?.language);
+
+                const notif = await crearNotificacion(
                     usuario._id,
                     'resumen_semanal',
                     'Resumen semanal disponible',
                     `Tu resumen semanal del ${datos.desde} al ${datos.hasta} ha sido enviado por email.`,
                     '/dashboard'
                 );
+
+                // Emitir la notificación por socket si el usuario está conectado
+                if (notif) {
+                    emitirNotificacionNueva(usuario._id, {
+                        id: notif._id,
+                        tipo: notif.type,
+                        titulo: notif.title,
+                        mensaje: notif.message,
+                        link: notif.link
+                    });
+                }
             } catch (errorUsuario) {
                 console.error(`[Resumen] Error enviando a ${usuario.email}:`, errorUsuario.message);
             }

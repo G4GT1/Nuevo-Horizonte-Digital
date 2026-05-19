@@ -1,8 +1,10 @@
+import { createServer } from 'http';
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import swaggerUi from 'swagger-ui-express';
 
 import { authRoutes } from './routes/auth.route.js';
 import { stationsRoutes } from './routes/stations.route.js';
@@ -14,10 +16,13 @@ import { weatherRoutes } from './routes/weather.route.js';
 import { adminRoutes } from './routes/admin.route.js';
 import { notificationsRoutes } from './routes/notifications.route.js';
 import { activityRoutes } from './routes/activity.route.js';
+import { healthRoutes } from './routes/health.route.js';
 
 import { conexionBD } from './data/db.js';
 import { iniciarJobs } from './jobs/index.js';
-import { PORT, FRONTEND_URL } from './config.js';
+import { iniciarSockets } from './sockets/index.js';
+import { swaggerSpec } from './config/swagger.js';
+import { PORT, FRONTEND_URL, NODE_ENV, SWAGGER_ENABLED } from './config.js';
 
 const app = express();
 
@@ -50,6 +55,15 @@ app.use('/api/auth', limitadorAuth);
 app.use(express.json());
 app.use(cookieParser());
 
+// ── Swagger (solo en desarrollo o con SWAGGER_ENABLED=true) ───────────────
+if (NODE_ENV !== 'production' || SWAGGER_ENABLED === 'true') {
+    app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+        customSiteTitle: 'Horizonte Verde Digital — API Docs',
+        customCss: '.swagger-ui .topbar { background: #166534; } .swagger-ui .topbar-wrapper img { display: none; } .swagger-ui .topbar-wrapper::before { content: "🌱 Horizonte Verde Digital"; color: white; font-size: 18px; font-weight: 700; }'
+    }));
+    console.log(`Swagger disponible en http://localhost:${PORT}/api/docs`);
+}
+
 // ── Rutas ──────────────────────────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
 app.use('/api/stations', stationsRoutes);
@@ -61,6 +75,7 @@ app.use('/api/weather', weatherRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/activity', activityRoutes);
+app.use('/api/health', healthRoutes);
 
 // ── Salud del servidor ─────────────────────────────────────────────────────
 app.get('/', (req, res) => {
@@ -73,10 +88,13 @@ app.use((req, res) => {
 });
 
 // ── Arranque ───────────────────────────────────────────────────────────────
+const httpServer = createServer(app);
+
 conexionBD()
     .then(() => {
+        iniciarSockets(httpServer);
         iniciarJobs();
-        app.listen(PORT, () => {
+        httpServer.listen(PORT, () => {
             console.log(`Servidor corriendo en http://localhost:${PORT}`);
         });
     })

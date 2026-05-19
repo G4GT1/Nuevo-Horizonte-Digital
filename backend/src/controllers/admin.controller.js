@@ -152,7 +152,7 @@ export const suspenderUsuario = async (req, res) => {
 
         await User.findByIdAndUpdate(req.params.id, { suspended: true });
 
-        await enviarEmailCuentaSuspendida(usuario.email, usuario.nombre);
+        await enviarEmailCuentaSuspendida(usuario.email, usuario.nombre, usuario.preferences?.language);
         await crearNotificacion(usuario._id, 'cuenta_suspendida', 'Cuenta suspendida', 'Tu acceso a la plataforma ha sido suspendido por un administrador.');
         await registrarActividad(req.user._id, 'usuario_suspendido', req, { usuarioId: req.params.id });
 
@@ -195,7 +195,7 @@ export const enviarInvitacion = async (req, res) => {
         await Invitation.create({ email, role, inviteToken, expiresAt, createdBy: req.user._id });
 
         const admin = await User.findById(req.user._id).select('nombre apellidos');
-        await enviarEmailInvitacion(email, `${admin.nombre} ${admin.apellidos}`, role, inviteToken);
+        await enviarEmailInvitacion(email, `${admin.nombre} ${admin.apellidos}`, role, inviteToken, 'es');
         await registrarActividad(req.user._id, 'invitacion_enviada', req, { email, role });
 
         return respuestaCreado(res, { message: `Invitación enviada a ${email}.` });
