@@ -35,6 +35,7 @@ export const getConfigAlertas = async (req, res) => {
 };
 
 export const crearConfigAlerta = async (req, res) => {
+    console.log('[AlertConfig] Body recibido:', JSON.stringify(req.body, null, 2));
     try {
         const { stationId, source, metric, operator, threshold, active } = req.body;
 
@@ -63,7 +64,12 @@ export const actualizarConfigAlerta = async (req, res) => {
             return respuestaError(res, 'No tienes permiso para modificar esta configuración', 403);
         }
 
-        const actualizado = await AlertConfig.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+        const { stationId, source, metric, operator, threshold, active } = req.body;
+        const actualizado = await AlertConfig.findByIdAndUpdate(
+            req.params.id,
+            { stationId, source, metric, operator, threshold, active },
+            { new: true, runValidators: true }
+        );
         await registrarActividad(req.user._id, 'alerta_config_actualizada', req, { configId: req.params.id });
 
         return respuestaExito(res, { config: actualizado });
@@ -89,6 +95,40 @@ export const eliminarConfigAlerta = async (req, res) => {
         return respuestaExito(res, { message: 'Configuración eliminada.' });
     } catch (error) {
         return respuestaError(res, 'Error al eliminar la configuración', 500, error.message);
+    }
+};
+
+export const eliminarAlerta = async (req, res) => {
+    try {
+        const alerta = await Alert.findById(req.params.id);
+        if (!alerta) return respuestaNoEncontrado(res, 'Alerta no encontrada');
+
+        const esPropia = alerta.userId.toString() === req.user._id.toString();
+        if (!esPropia && req.user.role !== 'superadmin') {
+            return respuestaError(res, 'No tienes permiso para eliminar esta alerta', 403);
+        }
+
+        await Alert.findByIdAndDelete(req.params.id);
+        await registrarActividad(req.user._id, 'alerta_eliminada', req, { alertaId: req.params.id });
+
+        return respuestaExito(res, { message: 'Alerta eliminada.' });
+    } catch (error) {
+        return respuestaError(res, 'Error al eliminar la alerta', 500, error.message);
+    }
+};
+
+export const eliminarAlertasResueltas = async (req, res) => {
+    try {
+        const filtro = req.user.role === 'superadmin'
+            ? { status: 'resolved' }
+            : { userId: req.user._id, status: 'resolved' };
+
+        const { deletedCount } = await Alert.deleteMany(filtro);
+        await registrarActividad(req.user._id, 'alertas_resueltas_eliminadas', req, { deletedCount });
+
+        return respuestaExito(res, { message: `${deletedCount} alerta(s) eliminada(s).`, deletedCount });
+    } catch (error) {
+        return respuestaError(res, 'Error al eliminar las alertas resueltas', 500, error.message);
     }
 };
 

@@ -23,9 +23,10 @@ export const validarConfigAlerta = [
         .notEmpty().withMessage('La fuente de datos es requerida')
         .isIn(['fieldclimate', 'cesens']).withMessage('La fuente debe ser: fieldclimate o cesens'),
     body('metric')
+        .trim()
         .notEmpty().withMessage('La métrica es requerida')
-        .isIn(['temperature', 'humidity', 'vwc', 'battery', 'connection'])
-        .withMessage('La métrica debe ser: temperature, humidity, vwc, battery o connection'),
+        .isString().withMessage('La métrica debe ser un texto')
+        .isLength({ min: 1, max: 200 }).withMessage('La métrica debe tener entre 1 y 200 caracteres'),
     body('operator')
         .notEmpty().withMessage('El operador es requerido')
         .isIn(['gt', 'lt', 'eq']).withMessage('El operador debe ser: gt, lt o eq'),

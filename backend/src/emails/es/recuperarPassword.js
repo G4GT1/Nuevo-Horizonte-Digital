@@ -3,12 +3,20 @@ import { plantillaBase, boton } from '../base.js';
 export default ({ nombre, url }) => ({
     subject: 'Restablece tu contraseña — Horizonte Verde Digital',
     html: plantillaBase('Restablece tu contraseña', `
-        <h2 style="color:#f1f5f9;margin-top:0;">Restablecer contraseña</h2>
-        <p style="color:#94a3b8;line-height:1.6;">
-            Hola <strong style="color:#e2e8f0;">${nombre}</strong>, recibimos una solicitud para
-            restablecer tu contraseña. El enlace expira en <strong style="color:#e2e8f0;">1 hora</strong>.
+        <h2 style="margin:0 0 16px;color:#111827;font-size:20px;font-weight:700;line-height:1.3;">
+            Restablecer contraseña
+        </h2>
+        <p style="color:#4b5563;line-height:1.7;margin:0 0 12px;font-size:14px;">
+            Hola <strong style="color:#111827;">${nombre}</strong>, recibimos una solicitud para
+            restablecer la contraseña de tu cuenta.
         </p>
-        ${boton('Restablecer contraseña', url)}
-        <p style="color:#64748b;font-size:13px;">Si no solicitaste este cambio, ignora este email.</p>
-    `, 'es')
+        <p style="color:#4b5563;line-height:1.7;margin:0 0 0;font-size:14px;">
+            El enlace expira en <strong style="color:#111827;">1 hora</strong>. Si no solicitaste
+            este cambio, puedes ignorar este email.
+        </p>
+        ${boton('Restablecer contraseña', url, '#ea580c')}
+        <p style="color:#9ca3af;font-size:12px;margin:0;text-align:center;line-height:1.6;">
+            Si no realizaste esta solicitud, tu cuenta sigue segura.
+        </p>
+    `, '#ea580c', 'es'),
 });

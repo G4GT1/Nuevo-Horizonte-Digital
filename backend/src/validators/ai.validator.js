@@ -21,6 +21,13 @@ export const validarMensajeChat = [
     validationErrors
 ];
 
+export const validarTicket = [
+    body('asunto').trim().notEmpty().withMessage('El asunto es requerido').isLength({ max: 200 }),
+    body('descripcion').trim().notEmpty().withMessage('La descripción es requerida').isLength({ max: 2000 }),
+    body('urgencia').isIn(['baja', 'media', 'alta']).withMessage('La urgencia debe ser: baja, media o alta'),
+    validationErrors
+];
+
 export const validarBusqueda = [
     body('pregunta')
         .trim()

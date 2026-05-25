@@ -1,35 +1,63 @@
 import { plantillaBase, boton } from '../base.js';
 
+const stat = (v) => (v != null ? v : '—');
+
 export default ({ nombre, datos, urlDashboard }) => {
     const filas = datos.estaciones.map(e => `
         <tr>
-            <td style="color:#e2e8f0;padding:10px 8px;font-weight:600;border-bottom:1px solid #1e293b;">${e.nombre}</td>
-            <td style="color:#94a3b8;padding:10px 8px;border-bottom:1px solid #1e293b;">${e.fuente}</td>
-            <td style="color:#60a5fa;padding:10px 8px;text-align:center;border-bottom:1px solid #1e293b;">${e.temperatura?.media ?? '—'} °C</td>
-            <td style="color:#34d399;padding:10px 8px;text-align:center;border-bottom:1px solid #1e293b;">${e.humedad?.media ?? '—'} %</td>
-            <td style="color:#f59e0b;padding:10px 8px;text-align:center;border-bottom:1px solid #1e293b;">${e.alertas ?? 0}</td>
+          <td style="padding:11px 16px;font-weight:600;color:#111827;font-size:13px;border-bottom:1px solid #f3f4f6;">
+            ${e.nombre}
+          </td>
+          <td style="padding:11px 16px;font-size:12px;border-bottom:1px solid #f3f4f6;">
+            <span style="background:${e.fuente === 'FieldClimate' ? '#dbeafe' : '#dcfce7'};
+                         color:${e.fuente === 'FieldClimate' ? '#1d4ed8' : '#15803d'};
+                         padding:2px 8px;border-radius:4px;font-weight:600;font-size:11px;">
+              ${e.fuente === 'FieldClimate' ? 'FC' : 'CS'}
+            </span>
+          </td>
+          <td style="padding:11px 16px;text-align:center;color:#2563eb;font-weight:700;font-size:13px;border-bottom:1px solid #f3f4f6;">
+            ${stat(e.temperatura?.media)}${e.temperatura?.media != null ? ' °C' : ''}
+          </td>
+          <td style="padding:11px 16px;text-align:center;color:#16a34a;font-weight:700;font-size:13px;border-bottom:1px solid #f3f4f6;">
+            ${stat(e.humedad?.media)}${e.humedad?.media != null ? ' %' : ''}
+          </td>
+          <td style="padding:11px 16px;text-align:center;font-size:13px;border-bottom:1px solid #f3f4f6;">
+            <span style="color:${e.alertas > 0 ? '#dc2626' : '#6b7280'};font-weight:${e.alertas > 0 ? '700' : '400'};">
+              ${e.alertas ?? 0}
+            </span>
+          </td>
         </tr>
     `).join('');
 
     return {
         subject: 'Resumen semanal de sensores — Horizonte Verde Digital',
-        html: plantillaBase('Resumen semanal de sensores', `
-            <h2 style="color:#f1f5f9;margin-top:0;">Resumen semanal</h2>
-            <p style="color:#94a3b8;">Hola <strong style="color:#e2e8f0;">${nombre}</strong>, aquí tienes el resumen del
-            <strong style="color:#e2e8f0;">${datos.desde}</strong> al <strong style="color:#e2e8f0;">${datos.hasta}</strong>.</p>
-            <table style="width:100%;border-collapse:collapse;margin:16px 0;background:#0f172a;border-radius:8px;overflow:hidden;">
-                <thead>
-                    <tr style="background:#1e293b;">
-                        <th style="color:#64748b;padding:10px 8px;text-align:left;">Estación</th>
-                        <th style="color:#64748b;padding:10px 8px;text-align:left;">Fuente</th>
-                        <th style="color:#64748b;padding:10px 8px;text-align:center;">Temp. media</th>
-                        <th style="color:#64748b;padding:10px 8px;text-align:center;">Hum. media</th>
-                        <th style="color:#64748b;padding:10px 8px;text-align:center;">Alertas</th>
-                    </tr>
-                </thead>
-                <tbody>${filas}</tbody>
+        html: plantillaBase('Resumen semanal', `
+            <h2 style="margin:0 0 16px;color:#111827;font-size:20px;font-weight:700;line-height:1.3;">
+                Resumen semanal de sensores
+            </h2>
+            <p style="color:#4b5563;line-height:1.7;margin:0 0 24px;font-size:14px;">
+                Hola <strong style="color:#111827;">${nombre}</strong>, aquí tienes el resumen de tus estaciones
+                del <strong style="color:#111827;">${datos.desde}</strong>
+                al <strong style="color:#111827;">${datos.hasta}</strong>.
+            </p>
+
+            <table style="width:100%;border-collapse:collapse;border-radius:8px;overflow:hidden;border:1px solid #e5e7eb;">
+              <thead>
+                <tr style="background:#f9fafb;">
+                  <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid #e5e7eb;">Estación</th>
+                  <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid #e5e7eb;">Fuente</th>
+                  <th style="padding:10px 16px;text-align:center;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid #e5e7eb;">Temp. media</th>
+                  <th style="padding:10px 16px;text-align:center;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid #e5e7eb;">Hum. media</th>
+                  <th style="padding:10px 16px;text-align:center;font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid #e5e7eb;">Alertas</th>
+                </tr>
+              </thead>
+              <tbody>${filas}</tbody>
             </table>
-            ${boton('Ver detalles completos', urlDashboard)}
-        `, 'es')
+
+            ${boton('Ver detalles completos', urlDashboard, '#16a34a')}
+            <p style="color:#9ca3af;font-size:12px;margin:0;text-align:center;line-height:1.6;">
+                Puedes gestionar tus preferencias de notificación desde tu perfil.
+            </p>
+        `, '#16a34a', 'es'),
     };
 };

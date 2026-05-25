@@ -10,6 +10,7 @@ export const respuestaCreado = (res, data) => {
 };
 
 export const respuestaError = (res, message, status = 500, error = null) => {
+    if (error) console.error(`[respuestaError] ${message}:`, error);
     const body = { message };
     if (error && process.env.NODE_ENV === 'development') body.error = error;
     return res.status(status).json(body);

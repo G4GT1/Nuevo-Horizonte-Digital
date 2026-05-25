@@ -1,17 +1,29 @@
-import { plantillaBase, boton } from '../base.js';
+import { plantillaBase, boton, infoBox } from '../base.js';
 
 export default ({ nombre, alerta, urlAlertas }) => ({
-    subject: `⚠️ Alerta crítica: ${alerta.stationName} — ${alerta.metric}`,
-    html: plantillaBase('⚠️ Alerta crítica de sensor', `
-        <h2 style="color:#f87171;margin-top:0;">⚠️ Alerta crítica detectada</h2>
-        <p style="color:#94a3b8;line-height:1.6;">Hola <strong style="color:#e2e8f0;">${nombre}</strong>,</p>
-        <table style="width:100%;background:#0f172a;border-radius:8px;padding:16px;margin:16px 0;border-collapse:collapse;">
-            <tr><td style="color:#64748b;padding:6px 0;width:140px;">Estación</td><td style="color:#e2e8f0;font-weight:600;">${alerta.stationName}</td></tr>
-            <tr><td style="color:#64748b;padding:6px 0;">Métrica</td><td style="color:#e2e8f0;font-weight:600;">${alerta.metric}</td></tr>
-            <tr><td style="color:#64748b;padding:6px 0;">Valor detectado</td><td style="color:#f87171;font-weight:700;font-size:18px;">${alerta.value}</td></tr>
-            <tr><td style="color:#64748b;padding:6px 0;">Umbral configurado</td><td style="color:#e2e8f0;">${alerta.threshold}</td></tr>
-            <tr><td style="color:#64748b;padding:6px 0;">Mensaje</td><td style="color:#e2e8f0;">${alerta.message}</td></tr>
-        </table>
-        ${boton('Ver alertas en la plataforma', urlAlertas)}
-    `, 'es')
+    subject: `Alerta crítica: ${alerta.stationName} — ${alerta.metric}`,
+    html: plantillaBase('Alerta crítica de sensor', `
+        <p style="display:inline-block;background:#fef2f2;color:#dc2626;font-size:11px;font-weight:700;
+                  padding:3px 10px;border-radius:4px;border:1px solid #fecaca;margin:0 0 20px;letter-spacing:0.5px;">
+            ALERTA CRÍTICA
+        </p>
+        <h2 style="margin:0 0 16px;color:#111827;font-size:20px;font-weight:700;line-height:1.3;">
+            Se ha detectado un valor crítico
+        </h2>
+        <p style="color:#4b5563;line-height:1.7;margin:0 0 0;font-size:14px;">
+            Hola <strong style="color:#111827;">${nombre}</strong>, uno de tus sensores ha superado
+            el umbral configurado y requiere atención inmediata.
+        </p>
+        ${infoBox([
+            ['Estación',            alerta.stationName, false],
+            ['Métrica',             alerta.metric,      false],
+            ['Valor detectado',     alerta.value,       true],
+            ['Umbral configurado',  alerta.threshold,   false],
+            ['Mensaje',             alerta.message,     false],
+        ], '#dc2626')}
+        ${boton('Ver alertas en la plataforma', urlAlertas, '#dc2626')}
+        <p style="color:#9ca3af;font-size:12px;margin:0;text-align:center;line-height:1.6;">
+            Puedes gestionar tus alertas desde el panel de control.
+        </p>
+    `, '#dc2626', 'es'),
 });

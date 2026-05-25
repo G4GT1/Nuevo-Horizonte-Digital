@@ -2,37 +2,55 @@ import cron from 'node-cron';
 import { AlertConfig } from '../models/alertConfig.model.js';
 import { Alert } from '../models/alert.model.js';
 import { User } from '../models/user.model.js';
-import { PushSubscription } from '../models/pushSubscription.model.js';
 import * as fieldclimate from '../services/fieldclimate.service.js';
 import * as cesens from '../services/cesens.service.js';
 import { enviarEmailAlertaCritica } from '../services/email.service.js';
-import { enviarNotificacionATodos } from '../services/push.service.js';
 import { crearNotificacion } from '../utils/notificaciones.js';
-import { emitirActualizacionSensor, emitirAlertaNueva } from '../sockets/index.js';
+import { emitirActualizacionSensor, emitirAlertaNueva, emitirNotificacionNueva } from '../sockets/index.js';
 
-const CESENS_ID_ESTACION = 8368;
-const CESENS_METRICAS = { temperature: 1, humidity: 6, vwc: 28, battery: 95 };
+// ── Obtención de datos con caché por estación (scoped a cada ejecución) ─────
+// Evita N llamadas a la API cuando varias AlertConfig usan la misma estación.
 
-const obtenerValorActual = async (config) => {
-    if (config.source === 'fieldclimate') {
-        const datos = await fieldclimate.obtenerUltimaDatosEstacion(config.stationId);
-        const sensor = datos?.sensors?.find(s => s.name?.toLowerCase().includes(config.metric));
-        return sensor?.values?.[0]?.value ?? null;
-    }
+const obtenerDatosEstacion = async (source, stationId, cache) => {
+    const key = `${source}:${stationId}`;
+    if (cache.has(key)) return cache.get(key);
 
-    if (config.source === 'cesens') {
-        const idMetrica = CESENS_METRICAS[config.metric];
-        if (!idMetrica) return null;
-        const hoy = new Date();
-        const ayer = new Date(hoy);
-        ayer.setDate(hoy.getDate() - 1);
-        const datos = await cesens.obtenerDatosMetrica(CESENS_ID_ESTACION, idMetrica, ayer, hoy);
-        const lecturas = Array.isArray(datos) ? datos : [];
-        return lecturas.length ? lecturas[lecturas.length - 1]?.value ?? null : null;
-    }
+    const datos = source === 'fieldclimate'
+        ? await fieldclimate.obtenerUltimaDatosEstacion(stationId)
+        : await cesens.obtenerUltimaLecturaEstacion(stationId);
 
-    return null;
+    cache.set(key, datos);
+    return datos;
 };
+
+// ── Obtención del valor actual para un AlertConfig ───────────────────────────
+// config.metric es el nombreOriginal exacto del sensor (guardado al crear el umbral)
+
+const obtenerValorActual = async (config, cache) => {
+    const datos = await obtenerDatosEstacion(config.source, config.stationId, cache);
+    const todas = [...(datos?.principal ?? []), ...(datos?.detalle ?? [])];
+
+    // Match exacto por nombreOriginal — sin regex, sin traducciones
+    const match = todas.find(m => m.nombreOriginal === config.metric);
+    const valor  = match?.valor ?? null;
+
+    console.log(
+        `[Alertas][${config.source.toUpperCase()}] config=${config._id}` +
+        ` métrica="${config.metric}"` +
+        ` → ${match ? `"${match.nombre}" = ${valor} ${match.unidad ?? ''}` : 'SIN COINCIDENCIA'}`
+    );
+
+    if (!match && todas.length > 0) {
+        console.warn(
+            `[Alertas] Nombres disponibles en estación ${config.stationId}:`,
+            todas.map(m => `"${m.nombreOriginal}"`).join(', ')
+        );
+    }
+
+    return valor;
+};
+
+// ── Evaluación de umbral ─────────────────────────────────────────────────────
 
 const evaluarUmbral = (valor, operator, threshold) => {
     if (operator === 'gt') return valor > threshold;
@@ -46,100 +64,117 @@ const construirMensaje = (config, valor) => {
     return `${config.metric} ${ops[config.operator]} el umbral (${valor} vs ${config.threshold}) en la estación ${config.stationId}.`;
 };
 
-const comprobarAlertas = async () => {
-    console.log(`[${new Date().toISOString()}] Comprobando alertas...`);
+// ── Job principal ────────────────────────────────────────────────────────────
+
+export const comprobarAlertas = async () => {
+    console.log(`\n[${new Date().toISOString()}] ── Iniciando comprobación de alertas ──`);
+
+    // Caché local a esta ejecución — evita duplicar peticiones por estación
+    const cacheEstaciones = new Map();
+    let alertasGeneradas = 0;
 
     try {
         const configs = await AlertConfig.find({ active: true });
-        if (!configs.length) return;
+        console.log(`[Alertas] ${configs.length} configuración(es) activa(s)`);
+        if (!configs.length) return { alertasGeneradas: 0 };
 
-        // Mapa para agrupar valores por estación y emitir sensor:update una sola vez por estación
         const valoresPorEstacion = new Map();
 
         for (const config of configs) {
             try {
-                const valor = await obtenerValorActual(config);
-                if (valor === null) continue;
+                console.log(
+                    `\n[Alertas] ── Config ${config._id}: source=${config.source}` +
+                    ` station=${config.stationId} métrica="${config.metric}"` +
+                    ` ${config.operator} ${config.threshold} ──`
+                );
 
-                // Acumular datos para el evento sensor:update
+                const valor = await obtenerValorActual(config, cacheEstaciones);
+
+                if (valor === null) {
+                    console.log(`[Alertas] Config ${config._id}: valor=null, saltando`);
+                    continue;
+                }
+
+                // Acumular para sensor:update
                 if (!valoresPorEstacion.has(config.stationId)) {
                     valoresPorEstacion.set(config.stationId, {
                         stationId: config.stationId,
-                        source: config.source,
+                        source:    config.source,
                         timestamp: new Date().toISOString(),
-                        datos: {}
+                        datos:     {}
                     });
                 }
                 valoresPorEstacion.get(config.stationId).datos[config.metric] = valor;
 
                 const umbralSuperado = evaluarUmbral(valor, config.operator, config.threshold);
+                console.log(
+                    `[Alertas] Config ${config._id}: ${valor} ${config.operator} ${config.threshold}` +
+                    ` → ${umbralSuperado ? '⚠️  UMBRAL SUPERADO' : '✓  OK'}`
+                );
+
                 if (!umbralSuperado) continue;
 
                 // Evitar duplicar alertas activas para la misma config
                 const alertaActiva = await Alert.findOne({
-                    userId: config.userId,
+                    userId:    config.userId,
                     stationId: config.stationId,
-                    metric: config.metric,
-                    status: 'active'
+                    metric:    config.metric,
+                    status:    'active'
                 });
-                if (alertaActiva) continue;
+                if (alertaActiva) {
+                    console.log(`[Alertas] Config ${config._id}: alerta activa ya existe (${alertaActiva._id}), omitiendo`);
+                    continue;
+                }
 
                 const mensaje = construirMensaje(config, valor);
-                const tipo = config.metric === 'battery' || config.metric === 'connection' ? 'critical' : 'warning';
+                const tipo    = ['battery', 'connection'].includes(config.metric) ? 'critical' : 'warning';
 
                 const alerta = await Alert.create({
-                    userId: config.userId,
-                    stationId: config.stationId,
+                    userId:      config.userId,
+                    stationId:   config.stationId,
                     stationName: config.stationId,
-                    type: tipo,
-                    metric: config.metric,
-                    value: valor,
-                    threshold: config.threshold,
-                    message: mensaje
+                    type:        tipo,
+                    metric:      config.metric,
+                    value:       valor,
+                    threshold:   config.threshold,
+                    message:     mensaje
                 });
 
-                // Notificación interna
-                await crearNotificacion(
-                    config.userId,
-                    tipo === 'critical' ? 'alerta_critica' : 'alerta_sensor',
-                    `⚠️ Alerta en ${config.stationId}`,
-                    mensaje,
-                    '/alertas'
-                );
+                alertasGeneradas++;
+                console.log(`[Alertas] Config ${config._id}: alerta creada (${alerta._id}) tipo=${tipo}`);
 
-                // Emitir alerta por socket al usuario + superadmin
+                // Notificación interna en BD + socket
+                const tipoNotif   = tipo === 'critical' ? 'alerta_critica' : 'alerta_sensor';
+                const tituloNotif = `⚠️ Alerta en ${config.stationId}`;
+                await crearNotificacion(config.userId, tipoNotif, tituloNotif, mensaje, '/alertas');
+
+                console.log(`[Alertas][Socket] Emitiendo notificacion:nueva a user:${config.userId}`);
+                emitirNotificacionNueva(config.userId, { tipo: tipoNotif, titulo: tituloNotif, mensaje });
+
                 emitirAlertaNueva(config.userId, {
-                    id: alerta._id,
+                    id:      alerta._id,
                     tipo,
                     estacion: config.stationId,
-                    metrica: config.metric,
+                    metrica:  config.metric,
                     valor,
-                    umbral: config.threshold,
+                    umbral:   config.threshold,
                     mensaje
                 });
 
-                // Push al navegador
-                const suscripciones = await PushSubscription.find({ userId: config.userId });
-                if (suscripciones.length) {
-                    await enviarNotificacionATodos(suscripciones, {
-                        title: `⚠️ Alerta: ${config.metric}`,
-                        body: mensaje,
-                        data: { alertaId: alerta._id, url: '/alertas' }
-                    });
-                }
-
-                // Email si es crítica y el usuario lo tiene activado
-                if (tipo === 'critical') {
-                    const usuario = await User.findById(config.userId).select('email nombre notifications preferences');
-                    if (usuario?.notifications?.emailCritical) {
-                        await enviarEmailAlertaCritica(usuario.email, usuario.nombre, {
-                            stationName: config.stationId,
-                            metric: config.metric,
-                            value: valor,
-                            threshold: config.threshold,
-                            message: mensaje
-                        }, usuario.preferences?.language);
-                    }
+                // Email si el usuario tiene alertas críticas por email activadas
+                const usuario = await User.findById(config.userId)
+                    .select('email nombre notifications preferences');
+                console.log(`[Alertas] Config ${config._id}: usuario=${usuario?.email} emailCritical=${usuario?.notifications?.emailCritical}`);
+                if (usuario?.notifications?.emailCritical) {
+                    console.log(`[Alertas] Config ${config._id}: enviando email de alerta a ${usuario.email}...`);
+                    await enviarEmailAlertaCritica(usuario.email, `${usuario.nombre}${usuario.apellidos ? ' ' + usuario.apellidos : ''}`, {
+                        stationName: config.stationId,
+                        metric:      config.metric,
+                        value:       valor,
+                        threshold:   config.threshold,
+                        message:     mensaje
+                    }, usuario.preferences?.language ?? 'es');
+                    console.log(`[Alertas] Config ${config._id}: email enviado correctamente`);
                 }
 
             } catch (errorConfig) {
@@ -147,13 +182,17 @@ const comprobarAlertas = async () => {
             }
         }
 
-        // Emitir actualizaciones de sensor a todos los conectados
+        // Emitir actualizaciones de sensor
         for (const datos of valoresPorEstacion.values()) {
             emitirActualizacionSensor(datos);
         }
 
+        console.log(`\n[Alertas] ── Job completado: ${alertasGeneradas} alerta(s) generada(s) ──\n`);
+        return { alertasGeneradas };
+
     } catch (error) {
         console.error('[Alertas] Error general en el job:', error.message);
+        return { alertasGeneradas };
     }
 };
 

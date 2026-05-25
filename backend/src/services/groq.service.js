@@ -9,42 +9,71 @@ const cliente = axios.create({
     }
 });
 
-const SYSTEM_CHATBOT = `Eres el asistente virtual de Horizonte Verde Digital, una plataforma de gestión de sensores agrícolas del IES Galileo Galilei en Córdoba, España.
-Tu función es ayudar a técnicos y alumnos con:
-- Uso e interpretación de la plataforma (dashboards, alertas, informes, configuración)
-- Agronomía general: interpretación de métricas como temperatura, humedad relativa, VWC del suelo, presión atmosférica y humectación foliar
-- Recomendaciones sobre cultivos y condiciones climáticas
+const buildSystemChatbot = (contextoEstaciones) => {
+    const ctx = contextoEstaciones
+        ? `\n\nDatos actuales de estaciones (caché 5 min):\n${contextoEstaciones}`
+        : '';
+    return `Eres el asistente agrícola de Horizonte Verde Digital, plataforma de sensores del IES Galileo Galilei de Córdoba, España.
+REGLAS ESTRICTAS:
+- Responde SIEMPRE en el idioma en que te hablen (español si hablan español, inglés si hablan inglés, etc.)
+- Respuestas CONCISAS: máximo 2-3 líneas. Solo amplía si el usuario pide explícitamente más detalle.
+- Usa los datos de estaciones del contexto para responder sobre estado, métricas y recomendaciones agronómicas.
+- Si no tienes datos suficientes, dilo en una línea. No inventes valores de sensores.${ctx}`;
+};
 
-Responde siempre en español, de forma clara y concisa. Si no sabes algo, dilo honestamente.
-No inventes datos de sensores; para eso el usuario tiene el buscador inteligente.`;
+const buildSystemBuscador = (contextoEstaciones) => {
+    const ctx = contextoEstaciones
+        ? `\n\nDatos actuales:\n${contextoEstaciones}`
+        : '';
+    return `Eres el buscador inteligente de Horizonte Verde Digital (IES Galileo Galilei, Córdoba).
+Responde en el idioma del usuario. Respuestas concisas con valores concretos y unidades. Máximo 3-4 líneas.
+Cita los datos exactos del contexto. No inventes valores.${ctx}`;
+};
 
-const SYSTEM_BUSCADOR = `Eres un motor de búsqueda inteligente para Horizonte Verde Digital.
-Tienes acceso a los datos actuales de los sensores de las estaciones agrícolas. Analiza los datos proporcionados y responde a la pregunta del usuario de forma clara y en lenguaje natural.
-Incluye valores concretos, unidades y, si procede, una breve interpretación agronómica.
-Responde siempre en español.`;
-
-export const chatbot = async (mensajes) => {
+export const chatbot = async (mensajes, contextoEstaciones = null) => {
     const { data } = await cliente.post('/chat/completions', {
         model: GROQ_MODEL,
         messages: [
-            { role: 'system', content: SYSTEM_CHATBOT },
+            { role: 'system', content: buildSystemChatbot(contextoEstaciones) },
             ...mensajes
         ],
-        max_tokens: 1024,
-        temperature: 0.7
+        max_tokens: 512,
+        temperature: 0.6
     });
     return data.choices[0].message.content;
 };
 
-export const busquedaIA = async (pregunta, datosSensores) => {
-    const contexto = `Datos actuales de sensores:\n${JSON.stringify(datosSensores, null, 2)}`;
+const buildSystemAyuda = () =>
+    `Eres el asistente de ayuda de Horizonte Verde Digital, una plataforma de monitorización IoT agrícola.
+REGLAS ESTRICTAS:
+- Solo respondes preguntas sobre el funcionamiento y uso de la plataforma (secciones, navegación, funciones, configuración).
+- Responde SIEMPRE en el idioma del usuario.
+- Máximo 3 líneas por respuesta. Conciso y directo.
+- NO tienes acceso a datos reales de sensores en este modo. Si preguntan por valores, remite al Asistente IA.
+- No respondas preguntas ajenas a la plataforma.`;
+
+export const ayudaIA = async (mensajes) => {
     const { data } = await cliente.post('/chat/completions', {
         model: GROQ_MODEL,
         messages: [
-            { role: 'system', content: SYSTEM_BUSCADOR },
-            { role: 'user', content: `${contexto}\n\nPregunta: ${pregunta}` }
+            { role: 'system', content: buildSystemAyuda() },
+            ...mensajes
         ],
-        max_tokens: 1024,
+        max_tokens: 256,
+        temperature: 0.4
+    });
+    return data.choices[0].message.content;
+};
+
+export const busquedaIA = async (pregunta, contextoEstaciones = null) => {
+    const systemContent = buildSystemBuscador(contextoEstaciones);
+    const { data } = await cliente.post('/chat/completions', {
+        model: GROQ_MODEL,
+        messages: [
+            { role: 'system', content: systemContent },
+            { role: 'user', content: pregunta }
+        ],
+        max_tokens: 512,
         temperature: 0.3
     });
     return data.choices[0].message.content;

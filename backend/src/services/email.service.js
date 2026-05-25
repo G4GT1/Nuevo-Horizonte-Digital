@@ -1,14 +1,24 @@
-import { Resend } from 'resend';
-import { createRequire } from 'module';
-import { RESEND_API_KEY, EMAIL_FROM, FRONTEND_URL } from '../config.js';
+import { MailerSend, EmailParams, Sender, Recipient } from 'mailersend';
+import { config, FRONTEND_URL } from '../config.js';
 
-const resend = new Resend(RESEND_API_KEY);
+const mailerSend = new MailerSend({ apiKey: config.mailersendApiKey });
 
 const IDIOMAS_SOPORTADOS = ['es', 'en'];
 
 const enviar = async (to, subject, html) => {
-    const { error } = await resend.emails.send({ from: EMAIL_FROM, to, subject, html });
-    if (error) throw new Error(`Error enviando email a ${to}: ${error.message}`);
+    const sentFrom = new Sender(config.mailersendFrom, config.mailersendFromName);
+    const recipients = [new Recipient(to)];
+    const emailParams = new EmailParams()
+        .setFrom(sentFrom)
+        .setTo(recipients)
+        .setSubject(subject)
+        .setHtml(html);
+    try {
+        await mailerSend.email.send(emailParams);
+    } catch (err) {
+        const detail = err?.body?.message ?? JSON.stringify(err?.body) ?? String(err);
+        throw new Error(`MailerSend [${err?.statusCode ?? '?'}]: ${detail}`);
+    }
 };
 
 const cargarPlantilla = async (idioma, clave) => {
@@ -33,7 +43,7 @@ export const enviarEmailVerificacion = async (to, nombre, token, idioma = 'es') 
 
 export const enviarEmailInvitacion = async (to, nombreAdmin, role, token, idioma = 'es') => {
     const plantilla = await cargarPlantilla(idioma, 'invitacion');
-    const url = `${FRONTEND_URL}/invitacion?token=${token}`;
+    const url = `${FRONTEND_URL}/invite/${token}`;
     const { subject, html } = plantilla({ nombreAdmin, role, url });
     await enviar(to, subject, html);
 };
@@ -56,6 +66,22 @@ export const enviarEmailCuentaSuspendida = async (to, nombre, idioma = 'es') => 
     const plantilla = await cargarPlantilla(idioma, 'cuentaSuspendida');
     const { subject, html } = plantilla({ nombre });
     await enviar(to, subject, html);
+};
+
+export const enviarTicketSoporte = async (to, { asunto, descripcion, urgencia, usuario }) => {
+    const col = urgencia === 'alta' ? '#ef4444' : urgencia === 'media' ? '#f59e0b' : '#22c55e';
+    const html = `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;background:#fff;padding:32px;border-radius:12px;border:1px solid #e5e7eb">
+        <div style="background:#15803d;height:4px;border-radius:4px 4px 0 0;margin:-32px -32px 24px"></div>
+        <h2 style="color:#111827;margin:0 0 8px">Nuevo ticket de soporte</h2>
+        <span style="display:inline-block;background:${col}20;color:${col};border:1px solid ${col}40;padding:2px 12px;border-radius:999px;font-size:12px;font-weight:600">Urgencia: ${urgencia.toUpperCase()}</span>
+        <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0">
+        <p style="color:#374151;margin:0 0 4px"><strong>De:</strong> ${usuario.nombre} ${usuario.apellidos}</p>
+        <p style="color:#374151;margin:0 0 4px"><strong>Email:</strong> ${usuario.email}</p>
+        <p style="color:#374151;margin:0 0 20px"><strong>Rol:</strong> ${usuario.role}</p>
+        <p style="color:#374151;margin:0 0 8px"><strong>Asunto:</strong> ${asunto}</p>
+        <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:16px;color:#374151;line-height:1.6">${descripcion.replace(/\n/g, '<br>')}</div>
+    </div>`;
+    await enviar(to, `[Soporte] ${asunto} [${urgencia.toUpperCase()}]`, html);
 };
 
 export const enviarResumenSemanal = async (to, nombre, datos, idioma = 'es') => {

@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import {
     getUsuarios, getUsuario, crearUsuario, actualizarUsuario, eliminarUsuario,
-    cambiarRol, suspenderUsuario, reactivarUsuario, enviarInvitacion, getInvitaciones
+    cambiarRol, suspenderUsuario, reactivarUsuario, enviarInvitacion, getInvitaciones,
+    eliminarInvitacion, runAlertsNow, demoAlertaEmail, demoCuentaSuspendidaEmail
 } from '../controllers/admin.controller.js';
 import { autenticarToken, autorizarRol } from '../middlewares/auth.middleware.js';
 import {
@@ -11,8 +12,10 @@ import {
 
 const router = Router();
 
-// Todas las rutas de admin requieren superadmin
-router.use(autenticarToken, autorizarRol(['superadmin']));
+// Autenticación obligatoria en todas las rutas
+router.use(autenticarToken);
+
+// ── Gestión de usuarios (superadmin + tecnico, con restricciones en controller) ──
 
 /**
  * @swagger
@@ -53,7 +56,7 @@ router.use(autenticarToken, autorizarRol(['superadmin']));
  *       403:
  *         description: Acceso denegado
  */
-router.get('/users', getUsuarios);
+router.get('/users', autorizarRol(['superadmin', 'tecnico']), getUsuarios);
 
 /**
  * @swagger
@@ -115,10 +118,10 @@ router.get('/users', getUsuarios);
  *       200:
  *         description: Usuario eliminado
  */
-router.get('/users/:id', validarId, getUsuario);
-router.post('/users', validarCrearUsuario, crearUsuario);
-router.put('/users/:id', validarId, validarActualizarUsuario, actualizarUsuario);
-router.delete('/users/:id', validarId, eliminarUsuario);
+router.get('/users/:id', autorizarRol(['superadmin', 'tecnico']), validarId, getUsuario);
+router.post('/users', autorizarRol(['superadmin']), validarCrearUsuario, crearUsuario);
+router.put('/users/:id', autorizarRol(['superadmin', 'tecnico']), validarId, validarActualizarUsuario, actualizarUsuario);
+router.delete('/users/:id', autorizarRol(['superadmin', 'tecnico']), validarId, eliminarUsuario);
 
 /**
  * @swagger
@@ -151,7 +154,7 @@ router.delete('/users/:id', validarId, eliminarUsuario);
  *       400:
  *         description: No puedes cambiar tu propio rol
  */
-router.put('/users/:id/role', validarId, validarCambiarRol, cambiarRol);
+router.put('/users/:id/role', autorizarRol(['superadmin', 'tecnico']), validarId, validarCambiarRol, cambiarRol);
 
 /**
  * @swagger
@@ -173,7 +176,7 @@ router.put('/users/:id/role', validarId, validarCambiarRol, cambiarRol);
  *       400:
  *         description: No puedes suspender tu propia cuenta o ya está suspendido
  */
-router.put('/users/:id/suspend', validarId, suspenderUsuario);
+router.put('/users/:id/suspend', autorizarRol(['superadmin', 'tecnico']), validarId, suspenderUsuario);
 
 /**
  * @swagger
@@ -195,7 +198,7 @@ router.put('/users/:id/suspend', validarId, suspenderUsuario);
  *       400:
  *         description: El usuario no está suspendido
  */
-router.put('/users/:id/reactivate', validarId, reactivarUsuario);
+router.put('/users/:id/reactivate', autorizarRol(['superadmin', 'tecnico']), validarId, reactivarUsuario);
 
 /**
  * @swagger
@@ -225,7 +228,12 @@ router.put('/users/:id/reactivate', validarId, reactivarUsuario);
  *       400:
  *         description: Ya existe usuario o invitación pendiente con ese email
  */
-router.get('/invitations', getInvitaciones);
-router.post('/invitations', validarEnviarInvitacion, enviarInvitacion);
+router.get('/invitations', autorizarRol(['superadmin']), getInvitaciones);
+router.post('/invitations', autorizarRol(['superadmin']), validarEnviarInvitacion, enviarInvitacion);
+router.delete('/invitations/:id', autorizarRol(['superadmin']), validarId, eliminarInvitacion);
+
+router.post('/alerts/run-now', autorizarRol(['superadmin']), runAlertsNow);
+router.post('/demo/alert-email', autorizarRol(['superadmin']), demoAlertaEmail);
+router.post('/demo/suspend-email', autorizarRol(['superadmin']), demoCuentaSuspendidaEmail);
 
 export { router as adminRoutes };

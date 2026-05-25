@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { exportarPDF, exportarExcel } from '../controllers/reports.controller.js';
+import { exportarPDF, exportarExcel, getReportData, sendWeeklyNow } from '../controllers/reports.controller.js';
 import { autenticarToken } from '../middlewares/auth.middleware.js';
 
 const router = Router();
@@ -47,7 +47,9 @@ const router = Router();
  *       403:
  *         description: Alumnado no puede exportar informes
  */
+router.get('/data', autenticarToken, getReportData);
 router.get('/export/pdf', autenticarToken, exportarPDF);
+router.post('/weekly/send-now', autenticarToken, sendWeeklyNow);
 
 /**
  * @swagger

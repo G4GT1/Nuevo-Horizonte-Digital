@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import {
     getAlertas, getConfigAlertas, crearConfigAlerta,
-    actualizarConfigAlerta, eliminarConfigAlerta, resolverAlerta
+    actualizarConfigAlerta, eliminarConfigAlerta, resolverAlerta,
+    eliminarAlerta, eliminarAlertasResueltas
 } from '../controllers/alerts.controller.js';
 import { autenticarToken, autorizarRol } from '../middlewares/auth.middleware.js';
 import { validarId, validarConfigAlerta } from '../validators/alerts.validator.js';
@@ -122,5 +123,7 @@ router.delete('/config/:id', autorizarRol(['superadmin', 'tecnico']), validarId,
  *         description: No tienes permiso para resolver esta alerta
  */
 router.put('/:id/resolve', autorizarRol(['superadmin', 'tecnico']), validarId, resolverAlerta);
+router.delete('/resolved/all', autorizarRol(['superadmin', 'tecnico']), eliminarAlertasResueltas);
+router.delete('/:id', autorizarRol(['superadmin', 'tecnico']), validarId, eliminarAlerta);
 
 export { router as alertsRoutes };

@@ -11,7 +11,6 @@ import { stationsRoutes } from './routes/stations.route.js';
 import { alertsRoutes } from './routes/alerts.route.js';
 import { reportsRoutes } from './routes/reports.route.js';
 import { aiRoutes } from './routes/ai.route.js';
-import { pushRoutes } from './routes/push.route.js';
 import { weatherRoutes } from './routes/weather.route.js';
 import { adminRoutes } from './routes/admin.route.js';
 import { notificationsRoutes } from './routes/notifications.route.js';
@@ -19,6 +18,8 @@ import { activityRoutes } from './routes/activity.route.js';
 import { healthRoutes } from './routes/health.route.js';
 
 import { conexionBD } from './data/db.js';
+import { seedStationMeta } from './data/seedStationMeta.js';
+import { AlertConfig } from './models/alertConfig.model.js';
 import { iniciarJobs } from './jobs/index.js';
 import { iniciarSockets } from './sockets/index.js';
 import { swaggerSpec } from './config/swagger.js';
@@ -70,7 +71,6 @@ app.use('/api/stations', stationsRoutes);
 app.use('/api/alerts', alertsRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/ai', aiRoutes);
-app.use('/api/push', pushRoutes);
 app.use('/api/weather', weatherRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/notifications', notificationsRoutes);
@@ -87,13 +87,44 @@ app.use((req, res) => {
     res.status(404).json({ message: 'Ruta no encontrada' });
 });
 
+// ── Error handler global ───────────────────────────────────────────────────
+app.use((err, req, res, _next) => {
+    // _next is unused but kept in the signature so Express recognizes this as
+    // an error-handling middleware (must have 4 args). Prefixing with _
+    // avoids unused-parameter diagnostics.
+    const status = err.status ?? err.statusCode ?? 500;
+    const message = NODE_ENV === 'production' ? 'Error interno del servidor' : (err.message ?? 'Error desconocido');
+    res.status(status).json({ message });
+});
+
 // ── Arranque ───────────────────────────────────────────────────────────────
 const httpServer = createServer(app);
 
 conexionBD()
-    .then(() => {
+    .then(async () => {
+        // Migración: eliminar AlertConfigs con métricas en formato antiguo (pre-dinámico)
+        const METRICAS_ANTIGUAS = ['temperature', 'humidity', 'vwc', 'battery', 'connection'];
+        const { deletedCount } = await AlertConfig.deleteMany({ metric: { $in: METRICAS_ANTIGUAS } });
+        if (deletedCount > 0) {
+            console.log(`[Migración] ${deletedCount} AlertConfig(s) con formato antiguo eliminada(s). Reconfigura los umbrales desde la interfaz.`);
+        }
+
+        await seedStationMeta();
         iniciarSockets(httpServer);
         iniciarJobs();
+        // Manejar errores del servidor (p. ej. EADDRINUSE) para evitar
+        // que se emita un 'error' no manejado y el proceso se caiga sin
+        // información clara.
+        httpServer.on('error', (err) => {
+            if (err && err.code === 'EADDRINUSE') {
+                console.error(`No se puede iniciar el servidor: el puerto ${PORT} está en uso.`);
+                console.error('Causa: EADDRINUSE. Detén el proceso que usa el puerto o cambia la variable PORT.');
+                process.exit(1);
+            }
+            console.error('Error en el servidor HTTP:', err);
+            process.exit(1);
+        });
+
         httpServer.listen(PORT, () => {
             console.log(`Servidor corriendo en http://localhost:${PORT}`);
         });

@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import {
     register, login, verificarEmail, forgotPassword, resetPassword,
-    refreshToken, logout, validarInvitacion, aceptarInvitacion
+    refreshToken, logout, validarInvitacion, aceptarInvitacion,
+    reenviarVerificacion, actualizarPerfil, cambiarPassword
 } from '../controllers/auth.controller.js';
 import {
     validarRegistro, validarLogin, validarForgotPassword,
@@ -200,5 +201,8 @@ router.post('/invite/accept', validarAceptarInvitacion, aceptarInvitacion);
  *         description: No autenticado
  */
 router.post('/logout', autenticarToken, logout);
+router.post('/resend-verification', reenviarVerificacion);
+router.put('/profile', autenticarToken, actualizarPerfil);
+router.put('/change-password', autenticarToken, cambiarPassword);
 
 export { router as authRoutes };

@@ -5,16 +5,20 @@ const rolesTexto = { superadmin: 'SuperAdmin', tecnico: 'Técnico', alumnado: 'A
 export default ({ nombreAdmin, role, url }) => ({
     subject: 'Invitación a Horizonte Verde Digital',
     html: plantillaBase('Has sido invitado', `
-        <h2 style="color:#f1f5f9;margin-top:0;">Has sido invitado a la plataforma</h2>
-        <p style="color:#94a3b8;line-height:1.6;">
-            <strong style="color:#e2e8f0;">${nombreAdmin}</strong> te ha invitado con el rol de
-            <strong style="color:#16a34a;">${rolesTexto[role] ?? role}</strong>.
-            Solo tienes que crear tu contraseña para entrar.
+        <h2 style="margin:0 0 16px;color:#111827;font-size:20px;font-weight:700;line-height:1.3;">
+            Tienes una nueva invitación
+        </h2>
+        <p style="color:#4b5563;line-height:1.7;margin:0 0 12px;font-size:14px;">
+            <strong style="color:#111827;">${nombreAdmin}</strong> te ha invitado a unirte a
+            <strong style="color:#111827;">Horizonte Verde Digital</strong>, la plataforma de monitorización agrícola.
         </p>
-        <p style="color:#94a3b8;line-height:1.6;">
-            El enlace expira en <strong style="color:#e2e8f0;">72 horas</strong>.
+        <p style="color:#4b5563;line-height:1.7;margin:0 0 0;font-size:14px;">
+            Tu rol asignado es <strong style="color:#2563eb;">${rolesTexto[role] ?? role}</strong>.
+            El enlace de invitación expira en <strong style="color:#111827;">72 horas</strong>.
         </p>
-        ${boton('Aceptar invitación', url)}
-        <p style="color:#64748b;font-size:13px;">Si no esperabas esta invitación, ignora este email.</p>
-    `, 'es')
+        ${boton('Aceptar invitación', url, '#2563eb')}
+        <p style="color:#9ca3af;font-size:12px;margin:0;text-align:center;line-height:1.6;">
+            Si no esperabas esta invitación, puedes ignorar este email.
+        </p>
+    `, '#2563eb', 'es'),
 });

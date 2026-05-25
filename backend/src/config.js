@@ -1,9 +1,9 @@
-import { config } from 'dotenv';
+import { config as dotenv } from 'dotenv';
 
-config();
+dotenv();
 
 // Servidor
-export const PORT = process.env.PORT;
+export const PORT = process.env.PORT ?? 4000;
 export const NODE_ENV = process.env.NODE_ENV;
 
 // Base de datos
@@ -17,9 +17,12 @@ export const REFRESH_SECRET_KEY = process.env.REFRESH_SECRET_KEY;
 // CORS
 export const FRONTEND_URL = process.env.FRONTEND_URL;
 
-// Resend
-export const RESEND_API_KEY = process.env.RESEND_API_KEY;
-export const EMAIL_FROM = process.env.EMAIL_FROM;
+// MailerSend
+export const config = {
+    mailersendApiKey:  process.env.MAILERSEND_API_KEY,
+    mailersendFrom:    process.env.MAILERSEND_FROM,
+    mailersendFromName: process.env.MAILERSEND_FROM_NAME || 'Horizonte Verde Digital',
+};
 
 // FieldClimate
 export const FIELDCLIMATE_PUBLIC_KEY = process.env.FIELDCLIMATE_PUBLIC_KEY;
@@ -41,13 +44,9 @@ export const GROQ_API_KEY = process.env.GROQ_API_KEY;
 export const GROQ_BASE_URL = process.env.GROQ_BASE_URL;
 export const GROQ_MODEL = process.env.GROQ_MODEL;
 
-// Web Push
-export const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY;
-export const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
-export const VAPID_SUBJECT = process.env.VAPID_SUBJECT;
-
 // Seed
 export const SEED_ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL;
+export const ADMIN_EMAIL = process.env.ADMIN_EMAIL || process.env.SEED_ADMIN_EMAIL;
 export const SEED_ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD;
 export const SEED_ADMIN_NOMBRE = process.env.SEED_ADMIN_NOMBRE;
 

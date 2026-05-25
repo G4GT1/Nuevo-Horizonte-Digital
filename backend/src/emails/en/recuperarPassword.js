@@ -3,12 +3,20 @@ import { plantillaBase, boton } from '../base.js';
 export default ({ nombre, url }) => ({
     subject: 'Reset your password — Horizonte Verde Digital',
     html: plantillaBase('Reset your password', `
-        <h2 style="color:#f1f5f9;margin-top:0;">Password reset</h2>
-        <p style="color:#94a3b8;line-height:1.6;">
-            Hello <strong style="color:#e2e8f0;">${nombre}</strong>, we received a request to
-            reset your password. The link expires in <strong style="color:#e2e8f0;">1 hour</strong>.
+        <h2 style="margin:0 0 16px;color:#111827;font-size:20px;font-weight:700;line-height:1.3;">
+            Reset your password
+        </h2>
+        <p style="color:#4b5563;line-height:1.7;margin:0 0 12px;font-size:14px;">
+            Hello <strong style="color:#111827;">${nombre}</strong>, we received a request to
+            reset your account password.
         </p>
-        ${boton('Reset password', url)}
-        <p style="color:#64748b;font-size:13px;">If you did not request this change, please ignore this email.</p>
-    `, 'en')
+        <p style="color:#4b5563;line-height:1.7;margin:0 0 0;font-size:14px;">
+            The link expires in <strong style="color:#111827;">1 hour</strong>. If you did not request
+            this change, you can ignore this email.
+        </p>
+        ${boton('Reset password', url, '#ea580c')}
+        <p style="color:#9ca3af;font-size:12px;margin:0;text-align:center;line-height:1.6;">
+            If you did not make this request, your account remains secure.
+        </p>
+    `, '#ea580c', 'en'),
 });

@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { SECRET_KEY, REFRESH_SECRET_KEY } from '../config.js';
 
-export const ACCESS_TOKEN_EXPIRY = '15m';
+export const ACCESS_TOKEN_EXPIRY = '2h';
 export const REFRESH_TOKEN_EXPIRY = '7d';
 
 export const generarAccessToken = (payload) => {
@@ -23,7 +23,10 @@ export const autenticarToken = (req, res, next) => {
 
     jwt.verify(token, SECRET_KEY, (err, usuario) => {
         if (err) {
-            return res.status(403).json({ message: 'Token inválido o expirado' });
+            if (err.name === 'TokenExpiredError') {
+                return res.status(401).json({ message: 'Token expirado' });
+            }
+            return res.status(403).json({ message: 'Token inválido' });
         }
         req.user = usuario;
         next();

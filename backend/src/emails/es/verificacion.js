@@ -3,12 +3,19 @@ import { plantillaBase, boton } from '../base.js';
 export default ({ nombre, url }) => ({
     subject: 'Verifica tu cuenta — Horizonte Verde Digital',
     html: plantillaBase('Verifica tu cuenta', `
-        <h2 style="color:#f1f5f9;margin-top:0;">Hola, ${nombre} 👋</h2>
-        <p style="color:#94a3b8;line-height:1.6;">
-            Gracias por registrarte en Horizonte Verde Digital. Para activar tu cuenta
-            pulsa el botón. El enlace expira en <strong style="color:#e2e8f0;">24 horas</strong>.
+        <h2 style="margin:0 0 16px;color:#111827;font-size:20px;font-weight:700;line-height:1.3;">
+            Bienvenido, ${nombre}
+        </h2>
+        <p style="color:#4b5563;line-height:1.7;margin:0 0 12px;font-size:14px;">
+            Gracias por unirte a <strong style="color:#111827;">Horizonte Verde Digital</strong>.
+            Para activar tu cuenta y empezar a monitorizar tus estaciones, verifica tu dirección de email.
         </p>
-        ${boton('Verificar mi cuenta', url)}
-        <p style="color:#64748b;font-size:13px;">Si no creaste esta cuenta, ignora este email.</p>
-    `, 'es')
+        <p style="color:#4b5563;line-height:1.7;margin:0 0 0;font-size:14px;">
+            El enlace de verificación expira en <strong style="color:#111827;">24 horas</strong>.
+        </p>
+        ${boton('Verificar mi cuenta', url, '#16a34a')}
+        <p style="color:#9ca3af;font-size:12px;margin:0;text-align:center;line-height:1.6;">
+            Si no creaste ninguna cuenta, puedes ignorar este email.
+        </p>
+    `, '#16a34a', 'es'),
 });

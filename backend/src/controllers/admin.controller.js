@@ -2,10 +2,11 @@ import crypto from 'crypto';
 import bcrypt from 'bcrypt';
 import { User } from '../models/user.model.js';
 import { Invitation } from '../models/invitation.model.js';
-import { enviarEmailInvitacion, enviarEmailCuentaSuspendida } from '../services/email.service.js';
+import { enviarEmailInvitacion, enviarEmailCuentaSuspendida, enviarEmailAlertaCritica } from '../services/email.service.js';
 import { registrarActividad } from '../utils/actividad.js';
 import { crearNotificacion } from '../utils/notificaciones.js';
 import { respuestaExito, respuestaCreado, respuestaError, respuestaNoEncontrado } from '../utils/respuestas.js';
+import { comprobarAlertas } from '../jobs/alertas.job.js';
 
 const SALT_ROUNDS = 12;
 
@@ -84,6 +85,9 @@ export const actualizarUsuario = async (req, res) => {
 
         const usuario = await User.findById(req.params.id);
         if (!usuario) return respuestaNoEncontrado(res, 'Usuario no encontrado');
+        if (req.user.role === 'tecnico' && usuario.role !== 'alumnado') {
+            return respuestaError(res, 'Solo puedes gestionar usuarios con rol alumnado.', 403);
+        }
 
         const actualizado = await User.findByIdAndUpdate(
             req.params.id,
@@ -104,6 +108,12 @@ export const eliminarUsuario = async (req, res) => {
     try {
         if (req.params.id === req.user._id.toString()) {
             return respuestaError(res, 'No puedes eliminar tu propia cuenta', 400);
+        }
+
+        const objetivo = await User.findById(req.params.id);
+        if (!objetivo) return respuestaNoEncontrado(res, 'Usuario no encontrado');
+        if (req.user.role === 'tecnico' && objetivo.role !== 'alumnado') {
+            return respuestaError(res, 'Solo puedes gestionar usuarios con rol alumnado.', 403);
         }
 
         const usuario = await User.findByIdAndDelete(req.params.id);
@@ -127,6 +137,9 @@ export const cambiarRol = async (req, res) => {
 
         const usuario = await User.findById(req.params.id);
         if (!usuario) return respuestaNoEncontrado(res, 'Usuario no encontrado');
+        if (req.user.role === 'tecnico' && usuario.role !== 'alumnado') {
+            return respuestaError(res, 'Solo puedes gestionar usuarios con rol alumnado.', 403);
+        }
 
         const rolAnterior = usuario.role;
         await User.findByIdAndUpdate(req.params.id, { role });
@@ -148,6 +161,9 @@ export const suspenderUsuario = async (req, res) => {
 
         const usuario = await User.findById(req.params.id);
         if (!usuario) return respuestaNoEncontrado(res, 'Usuario no encontrado');
+        if (req.user.role === 'tecnico' && usuario.role !== 'alumnado') {
+            return respuestaError(res, 'Solo puedes gestionar usuarios con rol alumnado.', 403);
+        }
         if (usuario.suspended) return respuestaError(res, 'El usuario ya está suspendido', 400);
 
         await User.findByIdAndUpdate(req.params.id, { suspended: true });
@@ -166,6 +182,9 @@ export const reactivarUsuario = async (req, res) => {
     try {
         const usuario = await User.findById(req.params.id);
         if (!usuario) return respuestaNoEncontrado(res, 'Usuario no encontrado');
+        if (req.user.role === 'tecnico' && usuario.role !== 'alumnado') {
+            return respuestaError(res, 'Solo puedes gestionar usuarios con rol alumnado.', 403);
+        }
         if (!usuario.suspended) return respuestaError(res, 'El usuario no está suspendido', 400);
 
         await User.findByIdAndUpdate(req.params.id, { suspended: false });
@@ -195,12 +214,39 @@ export const enviarInvitacion = async (req, res) => {
         await Invitation.create({ email, role, inviteToken, expiresAt, createdBy: req.user._id });
 
         const admin = await User.findById(req.user._id).select('nombre apellidos');
-        await enviarEmailInvitacion(email, `${admin.nombre} ${admin.apellidos}`, role, inviteToken, 'es');
+
+        let emailEnviado = true;
+        try {
+            await enviarEmailInvitacion(email, `${admin.nombre} ${admin.apellidos}`, role, inviteToken, 'es');
+        } catch (emailErr) {
+            emailEnviado = false;
+            console.error('[invite] Error enviando email:', emailErr.message);
+        }
+
         await registrarActividad(req.user._id, 'invitacion_enviada', req, { email, role });
 
-        return respuestaCreado(res, { message: `Invitación enviada a ${email}.` });
+        return respuestaCreado(res, {
+            message: emailEnviado
+                ? `Invitación enviada a ${email}.`
+                : `Invitación creada para ${email}. El email no se pudo enviar — el enlace está disponible en la lista de invitaciones.`
+        });
     } catch (error) {
         return respuestaError(res, 'Error al enviar la invitación', 500, error.message);
+    }
+};
+
+export const eliminarInvitacion = async (req, res) => {
+    try {
+        const invitacion = await Invitation.findById(req.params.id);
+        if (!invitacion) return respuestaNoEncontrado(res, 'Invitación no encontrada');
+        if (invitacion.usedAt) return respuestaError(res, 'No se puede eliminar una invitación ya usada', 400);
+
+        await Invitation.findByIdAndDelete(req.params.id);
+        await registrarActividad(req.user._id, 'invitacion_eliminada', req, { email: invitacion.email });
+
+        return respuestaExito(res, { message: 'Invitación eliminada.' });
+    } catch (error) {
+        return respuestaError(res, 'Error al eliminar la invitación', 500, error.message);
     }
 };
 
@@ -213,5 +259,43 @@ export const getInvitaciones = async (req, res) => {
         return respuestaExito(res, { invitaciones });
     } catch (error) {
         return respuestaError(res, 'Error al obtener las invitaciones', 500, error.message);
+    }
+};
+
+export const runAlertsNow = async (req, res) => {
+    try {
+        console.log(`[Admin] ${req.user.email} ejecutó el job de alertas manualmente`);
+        const resultado = await comprobarAlertas();
+        return respuestaExito(res, resultado);
+    } catch (error) {
+        return respuestaError(res, 'Error ejecutando el job de alertas', 500, error.message);
+    }
+};
+
+export const demoAlertaEmail = async (req, res) => {
+    try {
+        const admin = await User.findById(req.user._id).select('email nombre apellidos preferences');
+        const nombreCompleto = [admin.nombre, admin.apellidos].filter(Boolean).join(' ');
+        await enviarEmailAlertaCritica(admin.email, nombreCompleto, {
+            stationName: 'Estación Demo',
+            metric:      'temperature',
+            value:       42.5,
+            threshold:   35,
+            message:     'La temperatura supera el umbral configurado (42.5 °C vs 35 °C) en la estación Estación Demo.',
+        }, admin.preferences?.language ?? 'es');
+        return respuestaExito(res, { message: `Email de alerta demo enviado a ${admin.email}` });
+    } catch (error) {
+        return respuestaError(res, 'Error enviando email demo de alerta', 500, error.message);
+    }
+};
+
+export const demoCuentaSuspendidaEmail = async (req, res) => {
+    try {
+        const admin = await User.findById(req.user._id).select('email nombre apellidos preferences');
+        const nombreCompleto = [admin.nombre, admin.apellidos].filter(Boolean).join(' ');
+        await enviarEmailCuentaSuspendida(admin.email, nombreCompleto, admin.preferences?.language ?? 'es');
+        return respuestaExito(res, { message: `Email de suspensión demo enviado a ${admin.email}` });
+    } catch (error) {
+        return respuestaError(res, 'Error enviando email demo de suspensión', 500, error.message);
     }
 };

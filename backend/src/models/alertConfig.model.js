@@ -22,11 +22,9 @@ export const AlertConfig = mongoose.model('AlertConfig', new mongoose.Schema({
     },
     metric: {
         type: String,
-        enum: {
-            values: ['temperature', 'humidity', 'vwc', 'battery', 'connection'],
-            message: 'La métrica debe ser: temperature, humidity, vwc, battery o connection'
-        },
-        required: [true, 'La métrica es requerida']
+        required: [true, 'La métrica es requerida'],
+        trim: true,
+        maxlength: [200, 'La métrica no puede superar 200 caracteres']
     },
     operator: {
         type: String,

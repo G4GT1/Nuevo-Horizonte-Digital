@@ -22,7 +22,7 @@ export const register = async (req, res) => {
         const { nombre, apellidos, email, password } = req.body;
 
         const existe = await User.findOne({ email });
-        if (existe) return respuestaError(res, 'El email ya está registrado', 400);
+        if (existe) return res.status(400).json({ message: 'Ya existe una cuenta con ese email.', errorCode: 'EMAIL_EXISTS' });
 
         const hashPassword = await bcrypt.hash(password, SALT_ROUNDS);
         const emailVerifyToken = crypto.randomBytes(32).toString('hex');
@@ -50,7 +50,7 @@ export const register = async (req, res) => {
             id: usuario._id
         });
     } catch (error) {
-        if (error.code === 11000) return respuestaError(res, 'El email ya está registrado', 400);
+        if (error.code === 11000) return res.status(400).json({ message: 'Ya existe una cuenta con ese email.', errorCode: 'EMAIL_EXISTS' });
         if (error.name === 'ValidationError') return respuestaError(res, 'Error de validación', 400);
         return respuestaError(res, 'Error al registrar el usuario', 500, error.message);
     }
@@ -61,13 +61,13 @@ export const login = async (req, res) => {
         const { email, password } = req.body;
 
         const usuario = await User.findOne({ email });
-        if (!usuario) return respuestaNoAutorizado(res, 'Credenciales incorrectas');
+        if (!usuario) return res.status(401).json({ message: 'No encontramos una cuenta con ese email.', errorCode: 'EMAIL_NOT_FOUND' });
 
         const passwordValida = await bcrypt.compare(password, usuario.password);
-        if (!passwordValida) return respuestaNoAutorizado(res, 'Credenciales incorrectas');
+        if (!passwordValida) return res.status(401).json({ message: 'Contraseña incorrecta.', errorCode: 'WRONG_PASSWORD' });
 
-        if (!usuario.emailVerified) return respuestaError(res, 'Debes verificar tu email antes de iniciar sesión', 403);
-        if (usuario.suspended) return respuestaError(res, 'Tu cuenta ha sido suspendida. Contacta con el administrador.', 403);
+        if (!usuario.emailVerified) return res.status(403).json({ message: 'Debes verificar tu email antes de iniciar sesión.', errorCode: 'EMAIL_NOT_VERIFIED', email: usuario.email });
+        if (usuario.suspended) return res.status(403).json({ message: 'Tu cuenta ha sido suspendida.', errorCode: 'ACCOUNT_SUSPENDED' });
 
         const payload = { _id: usuario._id, role: usuario.role, email: usuario.email };
         const accessToken = generarAccessToken(payload);
@@ -194,6 +194,59 @@ export const logout = async (req, res) => {
         return respuestaExito(res, { message: 'Sesión cerrada correctamente.' });
     } catch (error) {
         return respuestaError(res, 'Error al cerrar sesión', 500, error.message);
+    }
+};
+
+export const reenviarVerificacion = async (req, res) => {
+    try {
+        const { email } = req.body;
+        const usuario = await User.findOne({ email });
+        if (!usuario || usuario.emailVerified) {
+            return respuestaExito(res, { message: 'Si el email existe y no está verificado, recibirás un nuevo email.' });
+        }
+        const emailVerifyToken = crypto.randomBytes(32).toString('hex');
+        const emailVerifyTokenExpira = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        await User.findByIdAndUpdate(usuario._id, { emailVerifyToken, emailVerifyTokenExpira });
+        await enviarEmailVerificacion(email, usuario.nombre, emailVerifyToken, usuario.preferences?.language);
+        return respuestaExito(res, { message: 'Email de verificación reenviado.' });
+    } catch (error) {
+        return respuestaError(res, 'Error al reenviar la verificación', 500, error.message);
+    }
+};
+
+export const actualizarPerfil = async (req, res) => {
+    try {
+        const { nombre, apellidos } = req.body;
+        if (!nombre || !apellidos) return respuestaError(res, 'Nombre y apellidos son requeridos', 400);
+        const usuario = await User.findByIdAndUpdate(
+            req.user._id,
+            { nombre: nombre.trim(), apellidos: apellidos.trim() },
+            { new: true, runValidators: true }
+        ).select('nombre apellidos email role preferences notifications lastLogin');
+        return respuestaExito(res, { usuario });
+    } catch (error) {
+        return respuestaError(res, 'Error al actualizar el perfil', 500, error.message);
+    }
+};
+
+export const cambiarPassword = async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+        if (!currentPassword || !newPassword) return respuestaError(res, 'Se requiere la contraseña actual y la nueva', 400);
+
+        const usuario = await User.findById(req.user._id);
+        if (!usuario) return respuestaNoEncontrado(res, 'Usuario no encontrado');
+
+        const valida = await bcrypt.compare(currentPassword, usuario.password);
+        if (!valida) return res.status(400).json({ message: 'La contraseña actual no es correcta.', errorCode: 'WRONG_CURRENT_PASSWORD' });
+
+        const hashPassword = await bcrypt.hash(newPassword, SALT_ROUNDS);
+        await User.findByIdAndUpdate(req.user._id, { password: hashPassword });
+        await registrarActividad(req.user._id, 'password_cambiado', req);
+
+        return respuestaExito(res, { message: 'Contraseña cambiada correctamente.' });
+    } catch (error) {
+        return respuestaError(res, 'Error al cambiar la contraseña', 500, error.message);
     }
 };
 
