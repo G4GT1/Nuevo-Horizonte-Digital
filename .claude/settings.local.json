@@ -38,7 +38,12 @@
       "Bash(node -e \"const {z} = require\\('zod'\\); const s = z.object\\({p:z.string\\(\\).min\\(8\\),c:z.string\\(\\)}\\).refine\\(d=>d.p===d.c,{message:'no match',path:['c']}\\); console.log\\(s.safeParse\\({p:'password1',c:'password2'}\\)\\)\")",
       "WebFetch(domain:dev.mailjet.com)",
       "Bash(node -e \"import\\('node-mailjet'\\).then\\(m => console.log\\('node-mailjet OK, version:', m.default.version ?? 'loaded'\\)\\)\")",
-      "Bash(npm uninstall *)"
+      "Bash(npm uninstall *)",
+      "Bash(Remove-Item -Recurse -Force \"C:\\\\Users\\\\ghali\\\\Documents\\\\Nuevo Horizonte Digital\\\\frontend\\\\src\\\\pages\")",
+      "Bash(Remove-Item -Recurse -Force \"C:\\\\Users\\\\ghali\\\\Documents\\\\Nuevo Horizonte Digital\\\\frontend\\\\src\\\\api\")",
+      "Bash(Remove-Item -Recurse -Force \"C:\\\\Users\\\\ghali\\\\Documents\\\\Nuevo Horizonte Digital\\\\frontend\\\\src\\\\store\")",
+      "Bash(Remove-Item -Recurse -Force \"C:\\\\Users\\\\ghali\\\\Documents\\\\Nuevo Horizonte Digital\\\\frontend\\\\src\\\\lib\")",
+      "Bash(Remove-Item -Recurse -Force \"C:\\\\Users\\\\ghali\\\\Documents\\\\Nuevo Horizonte Digital\\\\frontend\\\\src\\\\hooks\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\ghali\\Documents\\Nuevo Horizonte Digital\\src"
