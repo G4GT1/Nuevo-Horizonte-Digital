@@ -360,10 +360,10 @@ Nuevo-Horizonte-Digital/
 ## 📸 In the Field && Screenshoots
 
 <div align="center">
-<img src="frontend/public/Inicio.jpg" alt="Technical explanation" width="400" />
-<img src="frontend/public/Dashboard.jpg" alt="Technical explanation" width="400" />
-<img src="frontend/public/Estaciones.jpg" alt="Technical explanation" width="400" />
-<img src="frontend/public/chatIA.jpg" alt="Technical explanation" width="400" />
+<img src="frontend/public/Inicio.jpg" alt="LogIN" width="400" />
+<img src="frontend/public/Dashboard.jpg" alt="Dashboard" width="400" />
+<img src="frontend/public/Estaciones.jpg" alt="Stations" width="400" />
+<img src="frontend/public/ChatIA.jpg" alt="AI Chat" width="400" />
 </div>
 
 ---
