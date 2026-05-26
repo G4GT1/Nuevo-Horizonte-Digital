@@ -230,10 +230,80 @@ router.put('/users/:id/reactivate', autorizarRol(['superadmin', 'tecnico']), val
  */
 router.get('/invitations', autorizarRol(['superadmin']), getInvitaciones);
 router.post('/invitations', autorizarRol(['superadmin']), validarEnviarInvitacion, enviarInvitacion);
+
+/**
+ * @swagger
+ * /api/admin/invitations/{id}:
+ *   delete:
+ *     summary: Eliminar una invitacion pendiente
+ *     tags: [Administracion]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Invitacion eliminada
+ *       400:
+ *         description: Invitacion ya utilizada no se puede eliminar
+ *       404:
+ *         description: Invitacion no encontrada
+ */
 router.delete('/invitations/:id', autorizarRol(['superadmin']), validarId, eliminarInvitacion);
 
+/**
+ * @swagger
+ * /api/admin/alerts/run-now:
+ *   post:
+ *     summary: Ejecutar el job de comprobacion de alertas manualmente
+ *     description: Solo superadmin. Lanza comprobarAlertas() de forma sincrona y devuelve el resultado.
+ *     tags: [Administracion]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Resultado del job de alertas
+ *       403:
+ *         description: Acceso denegado
+ */
 router.post('/alerts/run-now', autorizarRol(['superadmin']), runAlertsNow);
+
+/**
+ * @swagger
+ * /api/admin/demo/alert-email:
+ *   post:
+ *     summary: Enviar email de alerta critica de demo al admin autenticado
+ *     description: Envia un email de ejemplo con datos ficticios al propio superadmin.
+ *     tags: [Administracion]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Email demo enviado
+ *       403:
+ *         description: Acceso denegado
+ */
 router.post('/demo/alert-email', autorizarRol(['superadmin']), demoAlertaEmail);
+
+/**
+ * @swagger
+ * /api/admin/demo/suspend-email:
+ *   post:
+ *     summary: Enviar email de cuenta suspendida de demo al admin autenticado
+ *     description: Envia un email de ejemplo de suspension al propio superadmin para verificar la plantilla.
+ *     tags: [Administracion]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Email demo enviado
+ *       403:
+ *         description: Acceso denegado
+ */
 router.post('/demo/suspend-email', autorizarRol(['superadmin']), demoCuentaSuspendidaEmail);
 
 export { router as adminRoutes };

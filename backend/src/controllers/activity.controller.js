@@ -1,6 +1,13 @@
 import { ActivityLog } from '../models/activityLog.model.js';
 import { respuestaExito, respuestaError } from '../utils/respuestas.js';
 
+/**
+ * GET /api/activity/me
+ * Historial de actividad del usuario autenticado, paginado por fecha descendente.
+ * @param {import('express').Request} req - query: { page, limit }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con { logs, total, page }
+ */
 export const getMiActividad = async (req, res) => {
     try {
         const { page = 1, limit = 30 } = req.query;
@@ -17,6 +24,14 @@ export const getMiActividad = async (req, res) => {
     }
 };
 
+/**
+ * GET /api/activity
+ * Log global de actividad de todos los usuarios. Solo superadmin.
+ * Incluye populate de userId (nombre, apellidos, email, role).
+ * @param {import('express').Request} req - query: { page, limit, userId?, action? }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con { logs, total, page, totalPages }
+ */
 export const getActividadGlobal = async (req, res) => {
     try {
         const { page = 1, limit = 50, userId, action } = req.query;

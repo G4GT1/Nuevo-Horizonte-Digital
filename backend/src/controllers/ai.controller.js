@@ -5,11 +5,16 @@ import * as cesens from '../services/cesens.service.js';
 import { respuestaExito, respuestaError } from '../utils/respuestas.js';
 import { ADMIN_EMAIL } from '../config.js';
 
-// ── Caché de contexto de estaciones (TTL 5 min) ───────────────────────────────
-
+/* Cache del contexto de estaciones para el prompt del LLM (TTL 5 min) */
 let _ctxCache = { data: null, ts: 0 };
 const CTX_TTL = 5 * 60 * 1000;
 
+/**
+ * Construye el string de contexto con los datos actuales de todas las estaciones
+ * para inyectarlo como system message en el prompt del LLM.
+ * Incluye hasta 6 metricas por estacion con su valor y unidad.
+ * @returns {Promise<string>} Texto multilínea con estaciones FC y Cesens
+ */
 const buildContextoEstaciones = async () => {
     const lineas = [];
 
@@ -75,6 +80,10 @@ const buildContextoEstaciones = async () => {
     return lineas.join('\n');
 };
 
+/**
+ * Devuelve el contexto de estaciones cacheado o lo regenera si el TTL ha expirado.
+ * @returns {Promise<string>}
+ */
 const getContextoEstaciones = async () => {
     const now = Date.now();
     if (_ctxCache.data && now - _ctxCache.ts < CTX_TTL) return _ctxCache.data;
@@ -85,6 +94,13 @@ const getContextoEstaciones = async () => {
 
 // ── Controllers ───────────────────────────────────────────────────────────────
 
+/**
+ * POST /api/ai/chat
+ * Chatbot contextual con datos de estaciones. Mantiene historial de los ultimos 10 mensajes.
+ * @param {import('express').Request} req - body: { messages: Array<{role, content}> }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con { reply }
+ */
 export const chat = async (req, res) => {
     try {
         const { messages } = req.body;
@@ -97,6 +113,13 @@ export const chat = async (req, res) => {
     }
 };
 
+/**
+ * POST /api/ai/search
+ * Busqueda semantica en los datos de estaciones usando el LLM con contexto.
+ * @param {import('express').Request} req - body: { pregunta: string }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con { respuesta }
+ */
 export const buscar = async (req, res) => {
     try {
         const { pregunta } = req.body;
@@ -108,6 +131,13 @@ export const buscar = async (req, res) => {
     }
 };
 
+/**
+ * POST /api/ai/help
+ * Asistente de ayuda de la plataforma. No usa contexto de estaciones; responde sobre el uso del sistema.
+ * @param {import('express').Request} req - body: { messages: Array<{role, content}> }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con { reply }
+ */
 export const ayuda = async (req, res) => {
     try {
         const { messages } = req.body;
@@ -119,6 +149,13 @@ export const ayuda = async (req, res) => {
     }
 };
 
+/**
+ * POST /api/ai/ticket
+ * Envia un ticket de soporte por email al ADMIN_EMAIL. Solo superadmin y tecnico.
+ * @param {import('express').Request} req - body: { asunto, descripcion, urgencia }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con mensaje de confirmacion
+ */
 export const ticket = async (req, res) => {
     try {
         const { asunto, descripcion, urgencia } = req.body;

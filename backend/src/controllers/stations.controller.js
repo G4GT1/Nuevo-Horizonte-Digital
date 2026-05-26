@@ -3,19 +3,39 @@ import * as cesens from '../services/cesens.service.js';
 import { respuestaExito, respuestaError, respuestaNoEncontrado } from '../utils/respuestas.js';
 import StationMeta from '../models/stationMeta.model.js';
 
-// IDs de métricas usados para histórico por defecto (cuando no se especifica uno concreto)
+/* IDs de metricas Cesens usados para historico cuando no se especifica una metrica concreta */
 const CESENS_METRICAS_HIST = [1, 2, 6, 8, 12, 14, 28, 78, 95, 96];
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
+/**
+ * Busca una estacion FieldClimate por id (name.original o _id).
+ * @param {object[]} estaciones
+ * @param {string} id
+ * @returns {object|undefined}
+ */
 const encontrarEstacionFC = (estaciones, id) =>
     estaciones.find(e => e.name?.original === id || e._id === id);
 
+/**
+ * Busca una estacion Cesens por id o id_ubicacion.
+ * @param {object[]} estaciones
+ * @param {string} id
+ * @returns {object|undefined}
+ */
 const encontrarEstacionCesens = (estaciones, id) =>
     estaciones.find(e => String(e.id) === id || String(e.id_ubicacion) === id);
 
 // ── Endpoints combinados ───────────────────────────────────────────────────
 
+/**
+ * GET /api/stations
+ * Devuelve todas las estaciones de FieldClimate y Cesens combinadas en un unico array.
+ * Enriquece cada estacion con las coordenadas guardadas en StationMeta si existen.
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con { estaciones } (campo source='fieldclimate'|'cesens')
+ */
 export const getEstaciones = async (req, res) => {
     try {
         const [fcResult, csResult, metaList] = await Promise.allSettled([
@@ -62,6 +82,13 @@ export const getEstaciones = async (req, res) => {
 
 // ── FieldClimate ───────────────────────────────────────────────────────────
 
+/**
+ * GET /api/stations/fieldclimate
+ * Lista estaciones FieldClimate con coordenadas guardadas inyectadas como _storedLat/_storedLon.
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con { estaciones }
+ */
 export const getEstacionesFC = async (req, res) => {
     try {
         const [rawResult, metaResult] = await Promise.allSettled([
@@ -95,6 +122,13 @@ export const getEstacionesFC = async (req, res) => {
     }
 };
 
+/**
+ * GET /api/stations/fieldclimate/:id
+ * Obtiene el detalle de una estacion FieldClimate por su id (name.original o _id).
+ * @param {import('express').Request} req - params: { id }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con { estacion }; 404 si no existe
+ */
 export const getEstacionFC = async (req, res) => {
     try {
         const { id } = req.params;
@@ -113,6 +147,13 @@ export const getEstacionFC = async (req, res) => {
     }
 };
 
+/**
+ * GET /api/stations/fieldclimate/:id/data
+ * Retorna la ultima lectura de todos los sensores de una estacion FieldClimate.
+ * @param {import('express').Request} req - params: { id }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con { datos: { principal, detalle, fecha } }
+ */
 export const getDatosActualesFC = async (req, res) => {
     try {
         const { id } = req.params;
@@ -126,6 +167,13 @@ export const getDatosActualesFC = async (req, res) => {
     }
 };
 
+/**
+ * GET /api/stations/fieldclimate/:id/history
+ * Retorna datos historicos de una estacion FieldClimate en el rango indicado.
+ * @param {import('express').Request} req - params: { id }, query: { from, to } (YYYY-MM-DD)
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con { datos }; 400 si faltan from/to
+ */
 export const getHistoricoFC = async (req, res) => {
     try {
         const { id } = req.params;
@@ -145,6 +193,13 @@ export const getHistoricoFC = async (req, res) => {
 
 // ── Cesens ─────────────────────────────────────────────────────────────────
 
+/**
+ * GET /api/stations/cesens
+ * Lista estaciones Cesens con metadatos de ubicacion.
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con { estaciones }
+ */
 export const getEstacionesCesens = async (req, res) => {
     try {
         const raw = await cesens.obtenerEstacionesConMeta();
@@ -157,6 +212,13 @@ export const getEstacionesCesens = async (req, res) => {
     }
 };
 
+/**
+ * GET /api/stations/cesens/:id
+ * Obtiene el detalle de una estacion Cesens por id o id_ubicacion.
+ * @param {import('express').Request} req - params: { id }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con { estacion }; 404 si no existe
+ */
 export const getEstacionCesens = async (req, res) => {
     try {
         const { id } = req.params;
@@ -169,6 +231,13 @@ export const getEstacionCesens = async (req, res) => {
     }
 };
 
+/**
+ * GET /api/stations/cesens/:id/data
+ * Retorna la ultima lectura de todas las metricas de una estacion Cesens.
+ * @param {import('express').Request} req - params: { id }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con { datos: { principal, detalle, fecha } }
+ */
 export const getDatosActualesCesens = async (req, res) => {
     try {
         const { id } = req.params;
@@ -179,6 +248,14 @@ export const getDatosActualesCesens = async (req, res) => {
     }
 };
 
+/**
+ * GET /api/stations/cesens/:id/history
+ * Retorna datos historicos de una estacion Cesens. Si no se especifica metric
+ * se usan CESENS_METRICAS_HIST por defecto.
+ * @param {import('express').Request} req - params: { id }, query: { from, to, metric? }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con { datos }; 400 si faltan from/to
+ */
 export const getHistoricoCesens = async (req, res) => {
     try {
         const { id } = req.params;
@@ -195,8 +272,15 @@ export const getHistoricoCesens = async (req, res) => {
     }
 };
 
-// ── Endpoints genéricos (backwards compat con ?source=) ───────────────────
+// ── Endpoints genericos (backwards compat con ?source=) ───────────────────
 
+/**
+ * GET /api/stations/:id?source=fieldclimate|cesens
+ * Detalle de una estacion usando el parametro query source para despachar al servicio correcto.
+ * @param {import('express').Request} req - params: { id }, query: { source }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con { estacion }; 400 si falta source o source invalido
+ */
 export const getEstacion = async (req, res) => {
     try {
         const { id } = req.params;
@@ -224,6 +308,13 @@ export const getEstacion = async (req, res) => {
     }
 };
 
+/**
+ * GET /api/stations/:id/data?source=fieldclimate|cesens
+ * Retorna la ultima lectura de una estacion usando el parametro query source.
+ * @param {import('express').Request} req - params: { id }, query: { source }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con { datos }; 400 si falta source
+ */
 export const getDatosActuales = async (req, res) => {
     try {
         const { id } = req.params;
@@ -247,6 +338,13 @@ export const getDatosActuales = async (req, res) => {
     }
 };
 
+/**
+ * GET /api/stations/:id/history?source=fieldclimate|cesens&from=YYYY-MM-DD&to=YYYY-MM-DD
+ * Historico de datos de una estacion usando el parametro query source.
+ * @param {import('express').Request} req - params: { id }, query: { source, from, to, metric? }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con { datos }; 400 si faltan source/from/to
+ */
 export const getHistorico = async (req, res) => {
     try {
         const { id } = req.params;
@@ -272,8 +370,16 @@ export const getHistorico = async (req, res) => {
     }
 };
 
-// ── Métricas disponibles de una estación (para el configurador de umbrales) ─
+// ── Metricas disponibles de una estacion (para el configurador de umbrales) ─
 
+/**
+ * GET /api/stations/:source/:id/metrics
+ * Lista las metricas disponibles con valor no nulo de una estacion.
+ * Cada metrica incluye id (nombreOriginal), nombre en ES, unidad y valor actual.
+ * @param {import('express').Request} req - params: { source, id }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con { metricas }; 400 si source desconocido
+ */
 export const getMetricasEstacion = async (req, res) => {
     const { source, id } = req.params;
     try {
@@ -302,8 +408,16 @@ export const getMetricasEstacion = async (req, res) => {
     }
 };
 
-// ── Station meta (manual coordinates) ─────────────────────────────────────
+// ── Station meta (coordenadas manuales) ───────────────────────────────────
 
+/**
+ * GET /api/stations/:source/:id/meta
+ * Obtiene los metadatos de coordenadas guardadas para una estacion.
+ * Si no existe, devuelve un objeto con lat/lon null en lugar de 404.
+ * @param {import('express').Request} req - params: { source, id }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con { meta }
+ */
 export const getStationMeta = async (req, res) => {
     const { source, id } = req.params;
     try {
@@ -316,9 +430,18 @@ export const getStationMeta = async (req, res) => {
 
 // ── Active sensor count (dashboard KPI) ───────────────────────────────────
 
+/* Cache en memoria de 1 minuto para evitar llamadas paralelas al dashboard */
 let _sensorCountCache = null;
 let _sensorCountCacheTs = 0;
 
+/**
+ * GET /api/stations/active-sensors
+ * Cuenta el total de sensores con valor no nulo en todas las estaciones.
+ * Resultado cacheado en memoria por 1 minuto. Usa timeout de 8s por estacion.
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con { total, fieldclimate, cesens }
+ */
 export const getActiveSensors = async (req, res) => {
     if (_sensorCountCache && Date.now() - _sensorCountCacheTs < 60_000) {
         return respuestaExito(res, _sensorCountCache);
@@ -381,6 +504,14 @@ export const getActiveSensors = async (req, res) => {
     }
 };
 
+/**
+ * PATCH /api/stations/:source/:id/meta
+ * Guarda o actualiza las coordenadas manuales (lat/lon) de una estacion via upsert.
+ * Solo superadmin y tecnico.
+ * @param {import('express').Request} req - params: { source, id }, body: { lat, lon }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con { meta }; 400 si lat/lon invalidos
+ */
 export const saveStationMeta = async (req, res) => {
     const { source, id } = req.params;
     const { lat, lon } = req.body;

@@ -10,13 +10,25 @@ import { respuestaExito, respuestaCreado, respuestaError, respuestaNoEncontrado,
 
 const SALT_ROUNDS = 12;
 
+/* refreshToken cookie: httpOnly, 7-day expiry.
+   En producción (Vercel + Render son dominios distintos) se necesita
+   SameSite=None + Secure para que el navegador envíe la cookie cross-origin.
+   En desarrollo SameSite=Lax es suficiente y no requiere HTTPS. */
+const IS_PROD = process.env.NODE_ENV === 'production';
 const COOKIE_OPTS = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    secure: IS_PROD,
+    sameSite: IS_PROD ? 'none' : 'lax',
     maxAge: 7 * 24 * 60 * 60 * 1000
 };
 
+/**
+ * POST /api/auth/register
+ * Registra un nuevo usuario con rol 'alumnado'. Envia email de verificacion.
+ * @param {import('express').Request} req - body: { nombre, apellidos, email, password }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 201 con id del usuario creado
+ */
 export const register = async (req, res) => {
     try {
         const { nombre, apellidos, email, password } = req.body;
@@ -56,6 +68,13 @@ export const register = async (req, res) => {
     }
 };
 
+/**
+ * POST /api/auth/login
+ * Autentica usuario. Establece cookie httpOnly con refreshToken y devuelve accessToken.
+ * @param {import('express').Request} req - body: { email, password }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con accessToken y datos de usuario
+ */
 export const login = async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -94,6 +113,13 @@ export const login = async (req, res) => {
     }
 };
 
+/**
+ * GET /api/auth/verify/:token
+ * Verifica el email del usuario usando el token de 32 bytes enviado por correo.
+ * @param {import('express').Request} req - params: { token }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 si token valido; 400 si expirado o no existe
+ */
 export const verificarEmail = async (req, res) => {
     try {
         const { token } = req.params;
@@ -119,6 +145,13 @@ export const verificarEmail = async (req, res) => {
     }
 };
 
+/**
+ * POST /api/auth/forgot-password
+ * Solicita reset de contrasena. Siempre responde 200 para no revelar si el email existe.
+ * @param {import('express').Request} req - body: { email }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 siempre
+ */
 export const forgotPassword = async (req, res) => {
     try {
         const { email } = req.body;
@@ -141,6 +174,13 @@ export const forgotPassword = async (req, res) => {
     }
 };
 
+/**
+ * POST /api/auth/reset-password
+ * Restablece la contrasena usando el token enviado por email (TTL: 1 hora).
+ * @param {import('express').Request} req - body: { token, password }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 si exito; 400 si token invalido o expirado
+ */
 export const resetPassword = async (req, res) => {
     try {
         const { token, password } = req.body;
@@ -168,6 +208,13 @@ export const resetPassword = async (req, res) => {
     }
 };
 
+/**
+ * POST /api/auth/refresh-token
+ * Lee la cookie httpOnly 'refreshToken' y emite un nuevo accessToken (JWT 15 min).
+ * @param {import('express').Request} req - cookie: refreshToken
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con nuevo accessToken; 403 si token invalido o cuenta suspendida
+ */
 export const refreshToken = async (req, res) => {
     try {
         const token = req.cookies?.refreshToken;
@@ -187,6 +234,13 @@ export const refreshToken = async (req, res) => {
     }
 };
 
+/**
+ * POST /api/auth/logout
+ * Registra actividad de logout y elimina la cookie de refreshToken.
+ * @param {import('express').Request} req - autenticado con autenticarToken
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 siempre
+ */
 export const logout = async (req, res) => {
     try {
         await registrarActividad(req.user._id, 'logout', req);
@@ -197,6 +251,13 @@ export const logout = async (req, res) => {
     }
 };
 
+/**
+ * POST /api/auth/resend-verification
+ * Genera nuevo token de verificacion y reenvía el email. Responde 200 siempre (anti-enumeracion).
+ * @param {import('express').Request} req - body: { email }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 siempre
+ */
 export const reenviarVerificacion = async (req, res) => {
     try {
         const { email } = req.body;
@@ -214,6 +275,13 @@ export const reenviarVerificacion = async (req, res) => {
     }
 };
 
+/**
+ * PUT /api/auth/profile
+ * Actualiza nombre y apellidos del usuario autenticado.
+ * @param {import('express').Request} req - body: { nombre, apellidos }; req.user._id del token
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con usuario actualizado
+ */
 export const actualizarPerfil = async (req, res) => {
     try {
         const { nombre, apellidos } = req.body;
@@ -229,6 +297,13 @@ export const actualizarPerfil = async (req, res) => {
     }
 };
 
+/**
+ * PUT /api/auth/change-password
+ * Cambia la contrasena verificando la contrasena actual con bcrypt.
+ * @param {import('express').Request} req - body: { currentPassword, newPassword }; req.user._id del token
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 si exito; 400 si contrasena actual incorrecta
+ */
 export const cambiarPassword = async (req, res) => {
     try {
         const { currentPassword, newPassword } = req.body;
@@ -250,8 +325,15 @@ export const cambiarPassword = async (req, res) => {
     }
 };
 
-// ── Flujo de invitación (magic link) ──────────────────────────────────────
+// ── Flujo de invitacion (magic link) ──────────────────────────────────────
 
+/**
+ * GET /api/auth/invite/:token
+ * Valida un token de invitacion y devuelve el email y rol asociados.
+ * @param {import('express').Request} req - params: { token }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con { email, role }; 400 si invalido o expirado
+ */
 export const validarInvitacion = async (req, res) => {
     try {
         const { token } = req.params;
@@ -270,6 +352,13 @@ export const validarInvitacion = async (req, res) => {
     }
 };
 
+/**
+ * POST /api/auth/invite/accept
+ * Crea la cuenta del usuario invitado, marca la invitacion como usada y devuelve tokens.
+ * @param {import('express').Request} req - body: { token, nombre, apellidos, password }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 201 con accessToken y datos de usuario; 400 si invitacion invalida
+ */
 export const aceptarInvitacion = async (req, res) => {
     try {
         const { token, nombre, apellidos, password } = req.body;

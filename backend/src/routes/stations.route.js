@@ -23,6 +23,31 @@ import { autenticarToken } from '../middlewares/auth.middleware.js';
 const router = Router();
 
 // ── Sensores activos (KPI dashboard) ──────────────────────────────────────
+
+/**
+ * @swagger
+ * /api/stations/active-sensors:
+ *   get:
+ *     summary: Contar sensores activos en todas las estaciones (KPI dashboard)
+ *     description: Resultado cacheado 1 minuto. Cuenta metricas con valor no nulo en FC y Cesens.
+ *     tags: [Estaciones]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Conteo de sensores activos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 total:
+ *                   type: integer
+ *                 fieldclimate:
+ *                   type: integer
+ *                 cesens:
+ *                   type: integer
+ */
 router.get('/active-sensors', autenticarToken, getActiveSensors);
 
 // ── FieldClimate (rutas estáticas primero para evitar conflicto con /:id) ──
@@ -212,11 +237,104 @@ router.get('/cesens/:id/data', autenticarToken, getDatosActualesCesens);
  */
 router.get('/cesens/:id/history', autenticarToken, getHistoricoCesens);
 
-// ── Métricas disponibles (:source/:id/metrics) ─────────────────────────────
+// ── Metricas disponibles (:source/:id/metrics) ─────────────────────────────
 // Debe estar ANTES de /:id para evitar que "fieldclimate" sea capturado como :id
 
+/**
+ * @swagger
+ * /api/stations/{source}/{id}/metrics:
+ *   get:
+ *     summary: Metricas disponibles de una estacion (para configurar umbrales de alerta)
+ *     description: Devuelve las metricas con valor no nulo. id (nombreOriginal) es el valor guardado en AlertConfig.metric.
+ *     tags: [Estaciones]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: source
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [fieldclimate, cesens]
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Lista de metricas disponibles
+ *       400:
+ *         description: Fuente desconocida
+ */
 router.get('/:source/:id/metrics', autenticarToken, getMetricasEstacion);
+
+/**
+ * @swagger
+ * /api/stations/{source}/{id}/meta:
+ *   get:
+ *     summary: Obtener coordenadas manuales de una estacion
+ *     tags: [Estaciones]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: source
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [fieldclimate, cesens]
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Metadatos de la estacion (lat/lon pueden ser null si no se han guardado)
+ */
 router.get('/:source/:id/meta', autenticarToken, getStationMeta);
+
+/**
+ * @swagger
+ * /api/stations/{source}/{id}/meta:
+ *   patch:
+ *     summary: Guardar o actualizar coordenadas manuales de una estacion
+ *     tags: [Estaciones]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: source
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [fieldclimate, cesens]
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [lat, lon]
+ *             properties:
+ *               lat:
+ *                 type: number
+ *               lon:
+ *                 type: number
+ *     responses:
+ *       200:
+ *         description: Metadatos guardados
+ *       400:
+ *         description: lat y lon son requeridos y deben ser numeros validos
+ *       403:
+ *         description: Acceso denegado (requiere superadmin o tecnico)
+ */
 router.patch('/:source/:id/meta', autenticarToken, autorizarRol(['superadmin', 'tecnico']), saveStationMeta);
 
 // ── Combinados / backwards compat ──────────────────────────────────────────

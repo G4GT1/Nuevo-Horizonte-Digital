@@ -4,6 +4,13 @@ import { registrarActividad } from '../utils/actividad.js';
 import { crearNotificacion } from '../utils/notificaciones.js';
 import { respuestaExito, respuestaCreado, respuestaError, respuestaNoEncontrado } from '../utils/respuestas.js';
 
+/**
+ * GET /api/alerts
+ * Lista alertas disparadas con paginacion. Superadmin ve todas; tecnico solo las suyas.
+ * @param {import('express').Request} req - query: { status, page, limit }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con { alertas, total, page, totalPages }
+ */
 export const getAlertas = async (req, res) => {
     try {
         const { status, page = 1, limit = 20 } = req.query;
@@ -24,6 +31,13 @@ export const getAlertas = async (req, res) => {
     }
 };
 
+/**
+ * GET /api/alerts/config
+ * Lista configuraciones de umbrales. Superadmin ve todas; tecnico solo las suyas.
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con { configs }
+ */
 export const getConfigAlertas = async (req, res) => {
     try {
         const filtro = req.user.role === 'superadmin' ? {} : { userId: req.user._id };
@@ -34,6 +48,13 @@ export const getConfigAlertas = async (req, res) => {
     }
 };
 
+/**
+ * POST /api/alerts/config
+ * Crea un nuevo umbral de alerta para la estacion y metrica indicadas.
+ * @param {import('express').Request} req - body: { stationId, source, metric, operator, threshold, active }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 201 con { config }
+ */
 export const crearConfigAlerta = async (req, res) => {
     console.log('[AlertConfig] Body recibido:', JSON.stringify(req.body, null, 2));
     try {
@@ -54,6 +75,13 @@ export const crearConfigAlerta = async (req, res) => {
     }
 };
 
+/**
+ * PUT /api/alerts/config/:id
+ * Actualiza un umbral de alerta. Solo el propietario o superadmin puede modificarlo.
+ * @param {import('express').Request} req - params: { id }, body: { stationId, source, metric, operator, threshold, active }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con { config }; 403 si no es propietario ni superadmin
+ */
 export const actualizarConfigAlerta = async (req, res) => {
     try {
         const config = await AlertConfig.findById(req.params.id);
@@ -78,6 +106,13 @@ export const actualizarConfigAlerta = async (req, res) => {
     }
 };
 
+/**
+ * DELETE /api/alerts/config/:id
+ * Elimina un umbral de alerta. Solo el propietario o superadmin puede eliminarlo.
+ * @param {import('express').Request} req - params: { id }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 si eliminado; 403 si no autorizado; 404 si no existe
+ */
 export const eliminarConfigAlerta = async (req, res) => {
     try {
         const config = await AlertConfig.findById(req.params.id);
@@ -98,6 +133,13 @@ export const eliminarConfigAlerta = async (req, res) => {
     }
 };
 
+/**
+ * DELETE /api/alerts/:id
+ * Elimina una alerta disparada. Solo el propietario o superadmin puede eliminarla.
+ * @param {import('express').Request} req - params: { id }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 si eliminada; 403 si no autorizado; 404 si no existe
+ */
 export const eliminarAlerta = async (req, res) => {
     try {
         const alerta = await Alert.findById(req.params.id);
@@ -117,6 +159,13 @@ export const eliminarAlerta = async (req, res) => {
     }
 };
 
+/**
+ * DELETE /api/alerts/resolved/all
+ * Elimina todas las alertas con status='resolved'. Superadmin elimina todas; tecnico solo las suyas.
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con { deletedCount }
+ */
 export const eliminarAlertasResueltas = async (req, res) => {
     try {
         const filtro = req.user.role === 'superadmin'
@@ -132,6 +181,13 @@ export const eliminarAlertasResueltas = async (req, res) => {
     }
 };
 
+/**
+ * PUT /api/alerts/:id/resolve
+ * Marca una alerta como resuelta estableciendo resolvedAt. Solo propietario o superadmin.
+ * @param {import('express').Request} req - params: { id }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con { alerta }; 400 si ya estaba resuelta; 403 si no autorizado
+ */
 export const resolverAlerta = async (req, res) => {
     try {
         const alerta = await Alert.findById(req.params.id);

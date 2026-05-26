@@ -201,8 +201,90 @@ router.post('/invite/accept', validarAceptarInvitacion, aceptarInvitacion);
  *         description: No autenticado
  */
 router.post('/logout', autenticarToken, logout);
+
+/**
+ * @swagger
+ * /api/auth/resend-verification:
+ *   post:
+ *     summary: Reenviar email de verificacion
+ *     description: Genera un nuevo token y reenvia el email. Responde 200 siempre (anti-enumeracion).
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email]
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *     responses:
+ *       200:
+ *         description: Respuesta generica
+ */
 router.post('/resend-verification', reenviarVerificacion);
+
+/**
+ * @swagger
+ * /api/auth/profile:
+ *   put:
+ *     summary: Actualizar nombre y apellidos del usuario autenticado
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [nombre, apellidos]
+ *             properties:
+ *               nombre:
+ *                 type: string
+ *               apellidos:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Perfil actualizado. Devuelve usuario actualizado.
+ *       400:
+ *         description: Nombre o apellidos no proporcionados
+ *       401:
+ *         description: No autenticado
+ */
 router.put('/profile', autenticarToken, actualizarPerfil);
+
+/**
+ * @swagger
+ * /api/auth/change-password:
+ *   put:
+ *     summary: Cambiar contrasena del usuario autenticado
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [currentPassword, newPassword]
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *               newPassword:
+ *                 type: string
+ *                 minLength: 8
+ *     responses:
+ *       200:
+ *         description: Contrasena cambiada correctamente
+ *       400:
+ *         description: Contrasena actual incorrecta o datos faltantes
+ *       401:
+ *         description: No autenticado
+ */
 router.put('/change-password', autenticarToken, cambiarPassword);
 
 export { router as authRoutes };

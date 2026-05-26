@@ -6,10 +6,17 @@ import { buildDatosEstaciones } from '../jobs/resumenSemanal.job.js';
 import { registrarActividad } from '../utils/actividad.js';
 import { respuestaError, respuestaExito } from '../utils/respuestas.js';
 
+/* IDs de metricas Cesens incluidas en los informes */
 const CESENS_METRICAS_REPORT = [1, 2, 6, 8, 12, 14, 28, 78, 95, 96];
 
-// ── Agregación ─────────────────────────────────────────────────────────────
+// ── Agregacion ─────────────────────────────────────────────────────────────
 
+/**
+ * Calcula min, max y media de un array de valores numericos.
+ * @param {(number|null)[]} vals
+ * @param {number} [decimals=2]
+ * @returns {{ min: number, max: number, avg: number } | null} null si no hay valores validos
+ */
 function calcStats(vals, decimals = 2) {
     const nums = vals.filter(v => v != null && !isNaN(Number(v))).map(Number);
     if (!nums.length) return null;
@@ -21,6 +28,11 @@ function calcStats(vals, decimals = 2) {
     };
 }
 
+/**
+ * Construye el resultado final (resumen + desglose por dia) a partir del mapa de metricas.
+ * @param {Record<string, { unidad: string, decimals: number, byDay: Record<string, number[]>, all: number[] }>} map
+ * @returns {{ resumen: object[], dias: object[] }}
+ */
 function buildResult(map) {
     const resumen = Object.entries(map)
         .map(([nombre, { unidad, decimals, all }]) => {
@@ -45,7 +57,11 @@ function buildResult(map) {
     return { resumen, dias };
 }
 
-// Convierte timestamp FC a Date: acepta Unix-segundos o ISO string
+/**
+ * Convierte timestamp FieldClimate a Date. Acepta Unix-segundos o ISO string.
+ * @param {string|number} ts
+ * @returns {Date|null}
+ */
 function fcFechaToDate(ts) {
     const n = Number(ts);
     if (!isNaN(n) && n > 1e9) return new Date(n * 1000);
@@ -53,6 +69,12 @@ function fcFechaToDate(ts) {
     return isNaN(d.getTime()) ? null : d;
 }
 
+/**
+ * Agrega datos brutos de FieldClimate en un mapa metrica→{byDay, all}.
+ * Convierte bateria de mV a porcentaje (0-100%) y omite sensores serial/calculation.
+ * @param {object} data - Respuesta cruda del servicio FieldClimate (dates + data[])
+ * @returns {{ resumen: object[], dias: object[] }}
+ */
 function agregarFC(data) {
     const fechas   = Array.isArray(data?.dates) ? data.dates : [];
     const sensores = Array.isArray(data?.data)  ? data.data  : [];
@@ -95,6 +117,11 @@ function agregarFC(data) {
     return buildResult(map);
 }
 
+/**
+ * Agrega datos brutos de Cesens en un mapa metrica→{byDay, all}.
+ * @param {Array<{ idMetrica: number, nombre: string, unidad: string, datos: Array<{ts: number, valor: number}> }>} datos
+ * @returns {{ resumen: object[], dias: object[] }}
+ */
 function agregarCesens(datos) {
     const map = {};
     datos.forEach(metrica => {
@@ -114,6 +141,15 @@ function agregarCesens(datos) {
     return buildResult(map);
 }
 
+/**
+ * Descarga y agrega los datos historicos de una estacion para el rango indicado.
+ * Despacha a FieldClimate o Cesens segun source.
+ * @param {string} stationId
+ * @param {'fieldclimate'|'cesens'} source
+ * @param {string} from - YYYY-MM-DD
+ * @param {string} to   - YYYY-MM-DD
+ * @returns {Promise<{ resumen: object[], dias: object[] }>}
+ */
 async function fetchAgregado(stationId, source, from, to) {
     // Normaliza a YYYY-MM-DD — igual que getHistoricoFC en stations.controller
     const fromStr = String(from).slice(0, 10);
@@ -145,6 +181,14 @@ async function fetchAgregado(stationId, source, from, to) {
 
 // ── Endpoints ──────────────────────────────────────────────────────────────
 
+/**
+ * GET /api/reports/data
+ * Retorna datos agregados (resumen + desglose diario) de una estacion para un rango de fechas.
+ * Usado por el cliente para generar el PDF con react-pdf.
+ * @param {import('express').Request} req - query: { stationId, source, from, to }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con { stationId, source, from, to, resumen, dias }
+ */
 export const getReportData = async (req, res) => {
     try {
         const { stationId, source, from, to } = req.query;
@@ -158,6 +202,14 @@ export const getReportData = async (req, res) => {
     }
 };
 
+/**
+ * GET /api/reports/export/excel
+ * Genera y descarga un archivo .xlsx con el resumen del periodo y el detalle diario.
+ * El nombre del archivo incluye stationId, from y to.
+ * @param {import('express').Request} req - query: { stationId, source, from, to }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} Descarga .xlsx o 400/500 en caso de error
+ */
 export const exportarExcel = async (req, res) => {
     try {
         const { stationId, source, from, to } = req.query;
@@ -247,13 +299,28 @@ export const exportarExcel = async (req, res) => {
     }
 };
 
-// PDF generado en el cliente — este endpoint se mantiene para compatibilidad
+/**
+ * GET /api/reports/export/pdf
+ * El PDF se genera en el cliente con react-pdf. Este endpoint devuelve 400 para indicarlo.
+ * Se mantiene registrado para evitar 404 y compatibilidad con la documentacion Swagger.
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 400 siempre
+ */
 export const exportarPDF = async (req, res) => {
     return respuestaError(res, 'El PDF se genera en el cliente. Usa GET /api/reports/data para los datos.', 400);
 };
 
-// ── Envío inmediato del resumen semanal (demo/prueba) ─────────────────────────
+// ── Envio inmediato del resumen semanal (demo/prueba) ─────────────────────────
 
+/**
+ * POST /api/reports/weekly/send-now
+ * Genera y envia el resumen semanal de los ultimos 7 dias al usuario autenticado.
+ * Reutiliza la misma logica que el cron semanal (buildDatosEstaciones).
+ * @param {import('express').Request} req - req.user del token
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con { message, estaciones }
+ */
 export const sendWeeklyNow = async (req, res) => {
     try {
         const usuario    = req.user;

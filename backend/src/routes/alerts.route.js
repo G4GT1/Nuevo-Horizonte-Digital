@@ -123,7 +123,51 @@ router.delete('/config/:id', autorizarRol(['superadmin', 'tecnico']), validarId,
  *         description: No tienes permiso para resolver esta alerta
  */
 router.put('/:id/resolve', autorizarRol(['superadmin', 'tecnico']), validarId, resolverAlerta);
+
+/**
+ * @swagger
+ * /api/alerts/resolved/all:
+ *   delete:
+ *     summary: Eliminar todas las alertas resueltas
+ *     description: Superadmin elimina todas las resueltas; tecnico solo las suyas.
+ *     tags: [Alertas]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Alertas eliminadas
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 deletedCount:
+ *                   type: integer
+ */
 router.delete('/resolved/all', autorizarRol(['superadmin', 'tecnico']), eliminarAlertasResueltas);
+
+/**
+ * @swagger
+ * /api/alerts/{id}:
+ *   delete:
+ *     summary: Eliminar una alerta disparada por ID
+ *     tags: [Alertas]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Alerta eliminada
+ *       403:
+ *         description: No tienes permiso para eliminar esta alerta
+ *       404:
+ *         description: Alerta no encontrada
+ */
 router.delete('/:id', autorizarRol(['superadmin', 'tecnico']), validarId, eliminarAlerta);
 
 export { router as alertsRoutes };

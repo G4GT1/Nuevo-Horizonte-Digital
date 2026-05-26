@@ -10,6 +10,13 @@ import { comprobarAlertas } from '../jobs/alertas.job.js';
 
 const SALT_ROUNDS = 12;
 
+/**
+ * GET /api/admin/users
+ * Lista usuarios con filtros opcionales y paginacion. Tecnico solo puede ver alumnado.
+ * @param {import('express').Request} req - query: { role, suspended, search, page, limit }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con { usuarios, total, page, totalPages }
+ */
 export const getUsuarios = async (req, res) => {
     try {
         const { role, suspended, search, page = 1, limit = 20 } = req.query;
@@ -41,6 +48,13 @@ export const getUsuarios = async (req, res) => {
     }
 };
 
+/**
+ * GET /api/admin/users/:id
+ * Obtiene un usuario por su ID de MongoDB.
+ * @param {import('express').Request} req - params: { id }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con { usuario }; 404 si no existe
+ */
 export const getUsuario = async (req, res) => {
     try {
         const usuario = await User.findById(req.params.id)
@@ -54,6 +68,13 @@ export const getUsuario = async (req, res) => {
     }
 };
 
+/**
+ * POST /api/admin/users
+ * Crea un usuario directamente (sin verificacion de email). Solo superadmin.
+ * @param {import('express').Request} req - body: { nombre, apellidos, email, password, role }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 201 con { id }; 400 si email duplicado
+ */
 export const crearUsuario = async (req, res) => {
     try {
         const { nombre, apellidos, email, password, role } = req.body;
@@ -79,6 +100,13 @@ export const crearUsuario = async (req, res) => {
     }
 };
 
+/**
+ * PUT /api/admin/users/:id
+ * Actualiza nombre, apellidos y email de un usuario. Tecnico solo puede editar alumnado.
+ * @param {import('express').Request} req - params: { id }, body: { nombre, apellidos, email }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con { usuario }; 403 si tecnico intenta editar no-alumnado
+ */
 export const actualizarUsuario = async (req, res) => {
     try {
         const { nombre, apellidos, email } = req.body;
@@ -104,6 +132,13 @@ export const actualizarUsuario = async (req, res) => {
     }
 };
 
+/**
+ * DELETE /api/admin/users/:id
+ * Elimina un usuario. No permite auto-eliminacion. Tecnico solo puede eliminar alumnado.
+ * @param {import('express').Request} req - params: { id }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 si eliminado; 400 si intenta eliminar su propia cuenta; 403 si rol insuficiente
+ */
 export const eliminarUsuario = async (req, res) => {
     try {
         if (req.params.id === req.user._id.toString()) {
@@ -127,6 +162,13 @@ export const eliminarUsuario = async (req, res) => {
     }
 };
 
+/**
+ * PUT /api/admin/users/:id/role
+ * Cambia el rol de un usuario. No permite cambio de rol propio. Notifica al usuario.
+ * @param {import('express').Request} req - params: { id }, body: { role }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con mensaje; 400 si intenta cambiar su propio rol
+ */
 export const cambiarRol = async (req, res) => {
     try {
         const { role } = req.body;
@@ -153,6 +195,13 @@ export const cambiarRol = async (req, res) => {
     }
 };
 
+/**
+ * PUT /api/admin/users/:id/suspend
+ * Suspende una cuenta. Envia email de notificacion y crea notificacion in-app.
+ * @param {import('express').Request} req - params: { id }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 si suspendido; 400 si ya estaba suspendido o es auto-suspension
+ */
 export const suspenderUsuario = async (req, res) => {
     try {
         if (req.params.id === req.user._id.toString()) {
@@ -178,6 +227,13 @@ export const suspenderUsuario = async (req, res) => {
     }
 };
 
+/**
+ * PUT /api/admin/users/:id/reactivate
+ * Reactiva una cuenta suspendida. Crea notificacion in-app al usuario.
+ * @param {import('express').Request} req - params: { id }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 si reactivado; 400 si el usuario no estaba suspendido
+ */
 export const reactivarUsuario = async (req, res) => {
     try {
         const usuario = await User.findById(req.params.id);
@@ -198,6 +254,14 @@ export const reactivarUsuario = async (req, res) => {
     }
 };
 
+/**
+ * POST /api/admin/invitations
+ * Genera un magic link de invitacion (TTL: 72h) y envia el email al destinatario.
+ * Si el email falla, la invitacion se crea igualmente y el enlace queda en la lista.
+ * @param {import('express').Request} req - body: { email, role }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 201 con mensaje; 400 si ya existe usuario o invitacion pendiente
+ */
 export const enviarInvitacion = async (req, res) => {
     try {
         const { email, role } = req.body;
@@ -235,6 +299,13 @@ export const enviarInvitacion = async (req, res) => {
     }
 };
 
+/**
+ * DELETE /api/admin/invitations/:id
+ * Elimina una invitacion pendiente. No permite eliminar invitaciones ya usadas.
+ * @param {import('express').Request} req - params: { id }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 si eliminada; 400 si ya fue usada; 404 si no existe
+ */
 export const eliminarInvitacion = async (req, res) => {
     try {
         const invitacion = await Invitation.findById(req.params.id);
@@ -250,6 +321,14 @@ export const eliminarInvitacion = async (req, res) => {
     }
 };
 
+/**
+ * GET /api/admin/invitations
+ * Lista todas las invitaciones ordenadas por fecha de creacion descendente.
+ * Incluye populate de createdBy (nombre, apellidos, email).
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con { invitaciones }
+ */
 export const getInvitaciones = async (req, res) => {
     try {
         const invitaciones = await Invitation.find()
@@ -262,6 +341,13 @@ export const getInvitaciones = async (req, res) => {
     }
 };
 
+/**
+ * POST /api/admin/alerts/run-now
+ * Ejecuta el job de comprobacion de alertas de forma sincrona. Solo superadmin.
+ * @param {import('express').Request} req - req.user.email para log
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con resultado del job
+ */
 export const runAlertsNow = async (req, res) => {
     try {
         console.log(`[Admin] ${req.user.email} ejecutó el job de alertas manualmente`);
@@ -272,6 +358,13 @@ export const runAlertsNow = async (req, res) => {
     }
 };
 
+/**
+ * POST /api/admin/demo/alert-email
+ * Envia un email de alerta critica de prueba al propio superadmin autenticado.
+ * @param {import('express').Request} req - req.user._id del token
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con mensaje confirmando el envio
+ */
 export const demoAlertaEmail = async (req, res) => {
     try {
         const admin = await User.findById(req.user._id).select('email nombre apellidos preferences');
@@ -289,6 +382,13 @@ export const demoAlertaEmail = async (req, res) => {
     }
 };
 
+/**
+ * POST /api/admin/demo/suspend-email
+ * Envia un email de cuenta suspendida de prueba al propio superadmin autenticado.
+ * @param {import('express').Request} req - req.user._id del token
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con mensaje confirmando el envio
+ */
 export const demoCuentaSuspendidaEmail = async (req, res) => {
     try {
         const admin = await User.findById(req.user._id).select('email nombre apellidos preferences');

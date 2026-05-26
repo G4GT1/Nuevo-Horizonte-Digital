@@ -1,6 +1,13 @@
 import { Notification } from '../models/notification.model.js';
 import { respuestaExito, respuestaError, respuestaNoEncontrado } from '../utils/respuestas.js';
 
+/**
+ * GET /api/notifications
+ * Lista notificaciones del usuario autenticado con paginacion y contador de no leidas.
+ * @param {import('express').Request} req - query: { page, limit, unread? }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con { notificaciones, total, noLeidas, page }
+ */
 export const getNotificaciones = async (req, res) => {
     try {
         const { page = 1, limit = 30, unread } = req.query;
@@ -20,6 +27,13 @@ export const getNotificaciones = async (req, res) => {
     }
 };
 
+/**
+ * PUT /api/notifications/:id/read
+ * Marca una notificacion del usuario autenticado como leida.
+ * @param {import('express').Request} req - params: { id }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 si actualizada; 404 si no existe o no pertenece al usuario
+ */
 export const marcarLeida = async (req, res) => {
     try {
         const notificacion = await Notification.findOne({ _id: req.params.id, userId: req.user._id });
@@ -33,6 +47,13 @@ export const marcarLeida = async (req, res) => {
     }
 };
 
+/**
+ * PUT /api/notifications/read-all
+ * Marca todas las notificaciones no leidas del usuario autenticado como leidas.
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 con mensaje de confirmacion
+ */
 export const marcarTodasLeidas = async (req, res) => {
     try {
         await Notification.updateMany({ userId: req.user._id, read: false }, { read: true });
@@ -42,6 +63,13 @@ export const marcarTodasLeidas = async (req, res) => {
     }
 };
 
+/**
+ * DELETE /api/notifications/:id
+ * Elimina una notificacion. Solo puede eliminarla su propietario.
+ * @param {import('express').Request} req - params: { id }
+ * @param {import('express').Response} res
+ * @returns {Promise<void>} 200 si eliminada; 404 si no existe o no pertenece al usuario
+ */
 export const eliminarNotificacion = async (req, res) => {
     try {
         const notificacion = await Notification.findOneAndDelete({ _id: req.params.id, userId: req.user._id });

@@ -4,14 +4,31 @@ import { SECRET_KEY, REFRESH_SECRET_KEY } from '../config.js';
 export const ACCESS_TOKEN_EXPIRY = '2h';
 export const REFRESH_TOKEN_EXPIRY = '7d';
 
+/**
+ * Genera un JWT de acceso (TTL: 2h).
+ * @param {{ _id: string, role: string, email: string }} payload
+ * @returns {string}
+ */
 export const generarAccessToken = (payload) => {
     return jwt.sign(payload, SECRET_KEY, { expiresIn: ACCESS_TOKEN_EXPIRY });
 };
 
+/**
+ * Genera un JWT de refresco (TTL: 7d). Se guarda en cookie httpOnly.
+ * @param {{ _id: string, role: string, email: string }} payload
+ * @returns {string}
+ */
 export const generarRefreshToken = (payload) => {
     return jwt.sign(payload, REFRESH_SECRET_KEY, { expiresIn: REFRESH_TOKEN_EXPIRY });
 };
 
+/**
+ * Middleware Express: verifica el Bearer JWT del header Authorization.
+ * Asigna el payload decodificado a req.user. Responde 401/403 si el token falta, expira o es invalido.
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @param {import('express').NextFunction} next
+ */
 export const autenticarToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
 
@@ -33,6 +50,11 @@ export const autenticarToken = (req, res, next) => {
     });
 };
 
+/**
+ * Verifica y decodifica un refresh token. Lanza Error si es invalido o expirado.
+ * @param {string} token
+ * @returns {{ _id: string, role: string, email: string }}
+ */
 export const verificarRefreshToken = (token) => {
     try {
         return jwt.verify(token, REFRESH_SECRET_KEY);
@@ -41,6 +63,12 @@ export const verificarRefreshToken = (token) => {
     }
 };
 
+/**
+ * Middleware Express: comprueba que req.user.role este en la lista de roles permitidos.
+ * Debe usarse despues de autenticarToken.
+ * @param {string[]} rolesPermitidos - ej. ['superadmin', 'tecnico']
+ * @returns {import('express').RequestHandler}
+ */
 export const autorizarRol = (rolesPermitidos) => {
     return (req, res, next) => {
         if (!rolesPermitidos.includes(req.user.role)) {
