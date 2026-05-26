@@ -2,7 +2,7 @@
 
 <img src="frontend/public/logoWeb.png" alt="Horizonte Verde Digital" width="80" height="80" />
 
-# 🌱 Horizonte Verde Digital
+# Horizonte Verde Digital
 
 **Unified Agricultural Sensor Management Platform**
 
@@ -376,7 +376,7 @@ Nuevo-Horizonte-Digital/
 
 ## 📄 License
 
-This project is part of a **Final Degree Project (TFG)** for the DAW (Web Application Development) programme at IES Galileo Galilei, Córdoba, Spain.
+This project is part of a **Final Degree Project (TFG)** for the DAW (Web Application Development) programme at IES Trassierra, Córdoba, Spain.
 
 ---
 
@@ -385,8 +385,6 @@ This project is part of a **Final Degree Project (TFG)** for the DAW (Web Applic
 **Ghalib Ahmad**
 
 - GitHub: [@G4GT1](https://github.com/G4GT1)
-
-**Tutor:** Manuel Paniagua
 
 ---
 
