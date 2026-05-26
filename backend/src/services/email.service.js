@@ -30,7 +30,7 @@ const cargarPlantilla = async (idioma, clave) => {
 
 export const enviarEmailVerificacion = async (to, nombre, token, idioma = 'es') => {
     const plantilla = await cargarPlantilla(idioma, 'verificacion');
-    const url = `${FRONTEND_URL}/verificar-email?token=${token}`;
+    const url = `${FRONTEND_URL}/verify/${token}`;
     const { subject, html } = plantilla({ nombre, url });
     await enviar(to, subject, html);
 };
