@@ -1,23 +1,17 @@
-import { MailerSend, EmailParams, Sender, Recipient } from 'mailersend';
+import { Resend } from 'resend';
 import { config, FRONTEND_URL } from '../config.js';
 
-const mailerSend = new MailerSend({ apiKey: config.mailersendApiKey });
+const resend = new Resend(config.resendApiKey);
 
 const IDIOMAS_SOPORTADOS = ['es', 'en'];
 
 const enviar = async (to, subject, html) => {
-    const sentFrom = new Sender(config.mailersendFrom, config.mailersendFromName);
-    const recipients = [new Recipient(to)];
-    const emailParams = new EmailParams()
-        .setFrom(sentFrom)
-        .setTo(recipients)
-        .setSubject(subject)
-        .setHtml(html);
+    const from = `${config.resendFromName} <${config.resendFrom}>`;
     try {
-        await mailerSend.email.send(emailParams);
+        const { error } = await resend.emails.send({ from, to, subject, html });
+        if (error) throw new Error(`Resend: ${error.message}`);
     } catch (err) {
-        const detail = err?.body?.message ?? JSON.stringify(err?.body) ?? String(err);
-        throw new Error(`MailerSend [${err?.statusCode ?? '?'}]: ${detail}`);
+        throw new Error(`Resend: ${err?.message ?? String(err)}`);
     }
 };
 

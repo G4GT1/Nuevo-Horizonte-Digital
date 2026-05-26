@@ -17,11 +17,11 @@ export const REFRESH_SECRET_KEY = process.env.REFRESH_SECRET_KEY;
 // CORS
 export const FRONTEND_URL = process.env.FRONTEND_URL;
 
-// MailerSend
+// Resend
 export const config = {
-    mailersendApiKey:  process.env.MAILERSEND_API_KEY,
-    mailersendFrom:    process.env.MAILERSEND_FROM,
-    mailersendFromName: process.env.MAILERSEND_FROM_NAME || 'Horizonte Verde Digital',
+    resendApiKey:  process.env.RESEND_API_KEY,
+    resendFrom:    process.env.RESEND_FROM || 'onboarding@resend.dev',
+    resendFromName: process.env.RESEND_FROM_NAME || 'Horizonte Verde Digital',
 };
 
 // FieldClimate
